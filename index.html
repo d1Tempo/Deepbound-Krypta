@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deepbound Krypta</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="player-gui">
+
+  <header>
+    <h1 class="game-title">
+      <span>Deepbound Krypta</span>
+      <span class="dev-tag dev-only">GUI do Desenvolvedor</span>
+    </h1>
+    <div class="render-modes dev-only">
+      <button class="mode-btn" id="btnModeHybrid" onclick="setRenderMode('hybrid')">Pixel Art + Grid</button>
+      <button class="mode-btn active" id="btnModeSolid" onclick="setRenderMode('solid')">Pixel Art Puro</button>
+      <button class="mode-btn" id="btnModeWire" onclick="setRenderMode('wireframe')">Wireframe Puro</button>
+      <button class="mode-btn" id="btnToggleFog" onclick="toggleFogCheat()">Revelar Mapa: Off</button>
+      <button class="mode-btn special-btn" onclick="teleportNearGoal()" title="Concede as chaves e leva o jogador ao Ponto de Chegada para testar a transição de mapa">Testar Chegada + Chaves</button>
+      <button class="mode-btn" onclick="resetGame()">Gerar Nova Masmorra</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- Coluna Principal: Visão da Masmorra + Inventário Horizontal abaixo -->
+    <div class="main-column">
+      <section class="viewport-card">
+        <div class="viewport-header dev-only">
+          <span id="routeSummary">Partida: <strong>(6, 33)</strong> | Chegada Oposta: <strong>(29, 2)</strong></span>
+          <div class="status-pills">
+            <span class="status-pill floor-pill" id="floorPill">Mapa 1</span>
+            <span class="status-pill" id="zoneLabel">Corredor Inicial</span>
+          </div>
+        </div>
+        <div class="canvas-wrapper">
+          <canvas id="fpCanvas" width="800" height="600"></canvas>
+          <div class="compass-overlay" id="compassOverlay" aria-label="Bússola">
+            <svg class="compass-svg" viewBox="0 0 56 56">
+              <!-- Anel interno sutil e marcações cardinais -->
+              <circle cx="28" cy="28" r="21" fill="none" stroke="rgba(139, 148, 158, 0.18)" stroke-width="0.8" />
+              <line x1="28" y1="12" x2="28" y2="14.5" stroke="rgba(139, 148, 158, 0.35)" stroke-width="1" />
+              <line x1="44" y1="28" x2="41.5" y2="28" stroke="rgba(139, 148, 158, 0.35)" stroke-width="1" />
+              <line x1="28" y1="44" x2="28" y2="41.5" stroke="rgba(139, 148, 158, 0.35)" stroke-width="1" />
+              <line x1="12" y1="28" x2="14.5" y2="28" stroke="rgba(139, 148, 158, 0.35)" stroke-width="1" />
+
+              <!-- Pontos Cardinais (N, L, S, O) -->
+              <text x="28" y="6.8" id="compassDir0" class="compass-letter active">N</text>
+              <text x="49.2" y="28.3" id="compassDir1" class="compass-letter">L</text>
+              <text x="28" y="49.5" id="compassDir2" class="compass-letter">S</text>
+              <text x="6.8" y="28.3" id="compassDir3" class="compass-letter">O</text>
+
+              <!-- Agulha minimalista apontando para o ponto cardinal visível -->
+              <g id="compassNeedleGroup" transform="rotate(0 28 28)">
+                <!-- Cauda da agulha -->
+                <polygon points="28,39 25.4,28 30.6,28" fill="rgba(139, 148, 158, 0.38)" />
+                <!-- Ponta ativa da agulha (aponta para a direção do olhar) -->
+                <polygon points="28,13.5 31.2,28 28,25.8 24.8,28" fill="#f2cc60" stroke="#0d1117" stroke-width="0.5" />
+                <circle cx="28" cy="28" r="2.1" fill="#e6edf3" stroke="#0d1117" stroke-width="0.8" />
+              </g>
+            </svg>
+          </div>
+          <div class="enchanted-map-overlay" id="enchantedMapOverlay" onclick="closeEnchantedMapView()" title="Clique para fechar o Mapa Encantado e retornar à visão da masmorra">
+            <div class="enchanted-map-header">
+              <span>📜 Mapa Encantado da Masmorra</span>
+            </div>
+            <canvas id="playerMapCanvas" width="504" height="504"></canvas>
+            <div class="enchanted-map-hint">Clique sobre o mapa, no ícone do inventário ou mova-se para retornar à visão da masmorra (gire com Q/E para orientar-se)</div>
+          </div>
+          <div class="toast-banner dev-only" id="toastBanner"></div>
+        </div>
+      </section>
+
+      <!-- Janela Horizontal de Inventário (20 slots) embaixo da visão da masmorra -->
+      <section class="inventory-window" id="playerInventoryCard">
+        <div class="card-title" style="margin-bottom: 4px;">
+          <span>Inventário</span>
+          <span id="playerInvCount" style="font-family: 'Consolas', monospace; font-size: 0.72rem; text-transform: none;">0 / 20</span>
+        </div>
+        <div class="inventory-slots-grid" id="playerInventoryGrid"></div>
+      </section>
+
+      <!-- Janela de Histórico embaixo do Inventário (exibe em lista os 6 últimos avisos) -->
+      <section class="history-window" id="historyWindow">
+        <div class="card-title">
+          <span>Histórico</span>
+          <span style="font-size: 0.62rem; text-transform: none; opacity: 0.75;">Últimos 6 avisos</span>
+        </div>
+        <ul class="history-list" id="historyList"></ul>
+      </section>
+    </div>
+
+    <!-- Lado Direito: Janela do Personagem na GUI do Jogador (e painéis técnicos na GUI do Desenvolvedor) -->
+    <aside class="sidebar">
+      <section class="character-window player-only" id="playerCharacterCard">
+        <!-- 1. Área para o Perfil do Personagem (Silhueta genérica da altura do estômago para cima) -->
+        <div id="charProfileArea">
+          <div class="char-section-title">
+            <span>Perfil do Personagem</span>
+            <span style="font-size: 0.62rem; text-transform: none; color: #8b949e;">Guerreiro Heroico</span>
+          </div>
+          <div class="char-profile-box">
+            <!-- Silhueta genérica da altura do estômago (abdômen/cintura) para cima -->
+            <svg class="char-silhouette-svg" viewBox="0 0 160 150" aria-label="Silhueta do Personagem">
+              <defs>
+                <linearGradient id="silGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#384456" />
+                  <stop offset="55%" stop-color="#222a36" />
+                  <stop offset="100%" stop-color="#121720" />
+                </linearGradient>
+              </defs>
+              <!-- Halo de fundo sutil atrás do busto -->
+              <circle cx="80" cy="64" r="46" fill="rgba(88, 166, 255, 0.05)" />
+              <!-- Silhueta da altura do estômago para cima: abdômen, tórax, ombros largos, pescoço e cabeça -->
+              <path d="
+                M 42,150
+                L 38,118
+                C 30,114 22,106 20,92
+                C 18,76 28,68 46,64
+                L 64,59
+                L 66,49
+                C 60,44 57,35 58,25
+                C 59,13 67,6 80,6
+                C 93,6 101,13 102,25
+                C 103,35 100,44 94,49
+                L 96,59
+                L 114,64
+                C 132,68 142,76 140,92
+                C 138,106 130,114 122,118
+                L 118,150
+                Z
+              " fill="url(#silGrad)" stroke="#526074" stroke-width="1.8" stroke-linejoin="round" />
+              <!-- Linhas sutis de contorno peitoral/ombros e faixa da cintura/estômago -->
+              <path d="M 46,66 Q 80,78 114,66" fill="none" stroke="rgba(139, 148, 158, 0.22)" stroke-width="1.2" />
+              <path d="M 42,132 Q 80,138 118,132" fill="none" stroke="rgba(139, 148, 158, 0.18)" stroke-width="1.2" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- 2. Área para o Nome do Personagem (preenchível pelo jogador) -->
+        <div class="char-name-box" id="charNameArea">
+          <div class="char-section-title">
+            <label for="charNameInput">Nome do Personagem</label>
+          </div>
+          <input
+            type="text"
+            id="charNameInput"
+            class="char-name-input"
+            placeholder="Digite o nome do herói..."
+            maxlength="28"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <!-- Quadro de Raça do Personagem (dropdown menu abaixo do nome) -->
+        <div class="char-race-box" id="charRaceArea">
+          <div class="char-section-title">
+            <label for="charRaceSelect">Raça</label>
+          </div>
+          <select id="charRaceSelect" class="char-race-select" aria-label="Raça" onchange="setCharacterRace(this.value)">
+            <option value="" selected disabled hidden>Selecione a raça...</option>
+            <option value="Humano">Humano</option>
+            <option value="Anão">Anão</option>
+            <option value="Elfo">Elfo</option>
+          </select>
+        </div>
+
+        <!-- 3. Área de Vigor (Barras dinâmicas de Vida e Fadiga) -->
+        <div id="charStatsArea">
+          <div class="char-section-title">
+            <span>Vigor</span>
+          </div>
+          <div class="vigor-bars-container" id="vigorBarsContainer">
+            <!-- Barra superior: Vida (vermelho sangue) -->
+            <div class="vigor-bar-group">
+              <div class="vigor-bar-header">
+                <span class="vigor-bar-label-vida">Vida</span>
+                <span class="vigor-bar-numbers" id="valVidaText">20 / 20</span>
+              </div>
+              <div class="vigor-bar-track" role="progressbar" aria-label="Vida" id="barTrackVida" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20">
+                <div class="vigor-bar-fill vida-fill" id="barFillVida" style="width: 100%;"></div>
+              </div>
+            </div>
+            <!-- Barra inferior: Fadiga (verde vivo) -->
+            <div class="vigor-bar-group">
+              <div class="vigor-bar-header">
+                <span class="vigor-bar-label-fadiga">Fadiga</span>
+                <span class="vigor-bar-numbers" id="valFadigaText">20 / 20</span>
+              </div>
+              <div class="vigor-bar-track" role="progressbar" aria-label="Fadiga" id="barTrackFadiga" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20">
+                <div class="vigor-bar-fill fadiga-fill" id="barFillFadiga" style="width: 100%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Área para as Habilidades do Personagem (6 habilidades de combate) -->
+        <div id="charSkillsArea">
+          <div class="char-section-title">
+            <span>Habilidades</span>
+            <span style="font-size: 0.62rem; text-transform: none; color: #3fb950;">Combate (6)</span>
+          </div>
+          <div class="char-skills-list" id="charSkillsList"></div>
+        </div>
+      </section>
+      <div class="card dev-only" id="devMinimapCard">
+        <div class="card-title">
+          <span>Minimapa 2D (36×36 — Fog of War)</span>
+          <span class="badge-explore" id="exploreBadge">Explorado: 0%</span>
+        </div>
+        <canvas id="minimapCanvas" width="432" height="432"></canvas>
+        <div class="legend">
+          <span class="legend-item"><i class="swatch" style="background:#79c0ff;border:1px solid #fff;"></i>Chave/Porta de Ferro</span>
+          <span class="legend-item"><i class="swatch" style="background:#f2cc60;border:1px solid #fff;"></i>Chave/Porta de Ouro</span>
+          <span class="legend-item"><i class="swatch" style="background:#39c5cf;border:1px solid #fff;"></i>Porta/Botão Remoto</span>
+          <span class="legend-item"><i class="swatch" style="background:#ff9b50;border:1px solid #fff;"></i>Porta de Via Única</span>
+          <span class="legend-item"><i class="swatch" style="background:#a371f7;border:1px solid #f2cc60;"></i>Porta Especial (Saída)</span>
+          <span class="legend-item"><i class="swatch" style="background:#8b2635;border:1px solid #ff7b72;"></i>Entrada (Trancada)</span>
+        </div>
+      </div>
+
+      <div class="card dev-only" id="devMetricsCard">
+        <div class="card-title">
+          <span>Inventário de Chaves &amp; Métricas do Mapa</span>
+        </div>
+        <div class="inventory-row">
+          <div class="key-badge" id="badgeIronKey">
+            <span style="display:inline-flex;align-items:center;gap:6px;"><img id="iconIronKey" alt="" style="width:24px;height:17px;image-rendering:pixelated;object-fit:contain;">Chave de Ferro</span>
+            <span id="statusIronKey">Ausente</span>
+          </div>
+          <div class="key-badge" id="badgeGoldKey">
+            <span style="display:inline-flex;align-items:center;gap:6px;"><img id="iconGoldKey" alt="" style="width:24px;height:17px;image-rendering:pixelated;object-fit:contain;">Chave de Ouro</span>
+            <span id="statusGoldKey">Ausente</span>
+          </div>
+        </div>
+        <div class="stats-bar" id="genStatsBar">
+          <span>Remotas: 30%</span>
+          <span>Via Única: 30%</span>
+          <span>Becos Cegos: 47%</span>
+        </div>
+      </div>
+
+      <div class="card dev-only" id="devControlsCard">
+        <div class="card-title">
+          <span>Controles (<kbd>WASD</kbd>/<kbd>↑↓←→</kbd> Mover, <kbd>Q E</kbd>/<kbd>Shift+←→</kbd> Girar)</span>
+          <span id="stepCounter" style="font-family: monospace; font-size: 0.72rem; text-transform: none;">Passos: 0</span>
+        </div>
+        <div class="state-grid">
+          <div class="state-box">
+            <div class="state-label">Mapa</div>
+            <div class="state-value" id="valMap" style="color:#d2a8ff;">1</div>
+          </div>
+          <div class="state-box">
+            <div class="state-label">Pos X</div>
+            <div class="state-value" id="valX">6</div>
+          </div>
+          <div class="state-box">
+            <div class="state-label">Pos Y</div>
+            <div class="state-value" id="valY">33</div>
+          </div>
+          <div class="state-box">
+            <div class="state-label">Direção</div>
+            <div class="state-value" id="valDir">Norte</div>
+          </div>
+        </div>
+
+        <div class="pad-grid">
+          <button class="ctrl-btn" onclick="rotatePlayer(-1)">
+            <span>⟲ Girar Esq.</span>
+            <span class="sub">Q / Shift + ←</span>
+          </button>
+          <button class="ctrl-btn" onclick="moveForwardBackward(1)">
+            <span>↑ Frente</span>
+            <span class="sub">W / Seta Cima</span>
+          </button>
+          <button class="ctrl-btn" onclick="rotatePlayer(1)">
+            <span>⟳ Girar Dir.</span>
+            <span class="sub">E / Shift + →</span>
+          </button>
+          <button class="ctrl-btn" onclick="moveStrafe(-1)">
+            <span>← Passo Esq.</span>
+            <span class="sub">A / Seta Esq.</span>
+          </button>
+          <button class="ctrl-btn" onclick="moveForwardBackward(-1)">
+            <span>↓ Trás</span>
+            <span class="sub">S / Seta Baixo</span>
+          </button>
+          <button class="ctrl-btn" onclick="moveStrafe(1)">
+            <span>→ Passo Dir.</span>
+            <span class="sub">D / Seta Dir.</span>
+          </button>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <button class="dev-gui-toggle-btn" id="btnToggleGuiMode" onclick="toggleGuiMode()" title="Alternar entre a GUI do Jogador e a GUI do Desenvolvedor">
+    ⚙ GUI do Desenvolvedor
+  </button>
+
+  <script src="js/core/config.js"></script>
+  <script src="js/core/utils.js"></script>
+  <script src="js/dungeon/generator.js"></script>
+  <script src="js/dungeon/doors.js"></script>
+  <script src="js/dungeon/variants.js"></script>
+  <script src="js/world/queries.js"></script>
+  <script src="js/world/fog.js"></script>
+  <script src="js/player/state.js"></script>
+  <script src="js/player/character.js"></script>
+  <script src="js/player/movement.js"></script>
+  <script src="js/player/interactions.js"></script>
+  <script src="js/player/input.js"></script>
+  <script src="js/ui/hud.js"></script>
+  <script src="js/render/state.js"></script>
+  <script src="js/render/textures.js"></script>
+  <script src="js/ui/modes.js"></script>
+  <script src="js/ui/notices.js"></script>
+  <script src="js/render/hitboxes.js"></script>
+  <script src="js/render/projection.js"></script>
+  <script src="js/render/floor-ceiling.js"></script>
+  <script src="js/render/first-person.js"></script>
+  <script src="js/render/objects.js"></script>
+  <script src="js/render/walls.js"></script>
+  <script src="js/render/doors.js"></script>
+  <script src="js/render/canvas-hud.js"></script>
+  <script src="js/render/minimap.js"></script>
+  <script src="js/ui/compass.js"></script>
+  <script src="js/render/frame.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
