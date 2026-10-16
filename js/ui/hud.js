@@ -37,8 +37,8 @@ function updateInventoryHUD() {
     for (let i = 0; i < INVENTORY_SLOTS_COUNT; i++) {
       const item = playerInventoryItems[i];
       if (item) {
-        const iconUri = (typeof KEY_TEXTURE_DATA_URIS !== 'undefined' && KEY_TEXTURE_DATA_URIS[item.type])
-          ? KEY_TEXTURE_DATA_URIS[item.type]
+        const iconUri = (typeof KEY_TEXTURE_PATHS !== 'undefined' && KEY_TEXTURE_PATHS[item.type])
+          ? KEY_TEXTURE_PATHS[item.type]
           : '';
         const isMap = (item.type === 'map');
         const activeClass = (isMap && isEnchantedMapOpen) ? ' active-map-slot' : '';
