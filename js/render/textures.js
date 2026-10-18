@@ -111,6 +111,14 @@ const KEY_TEXTURE_PATHS = {
 
 const KEY_TEXTURE_IMAGES = {};
 
+// Objetos coletáveis encontrados nas masmorras (moedas e, no futuro, outros itens)
+const OBJECT_TEXTURE_PATHS = {
+  "coin_floor": "assets/objects/coin_floor.png",
+  "coin_icon": "assets/objects/coin_icon.png"
+};
+
+const OBJECT_TEXTURE_IMAGES = {};
+
 const floorCompositeCache = new Map();
 
 const ceilCompositeCache = new Map();
