@@ -83,6 +83,78 @@ function drawKeyIn3D(rx, rz, keyObj, W, H) {
   });
 }
 
+// Moeda (dobrão de ouro) caída no chão. Mesmo modelo de drawKeyIn3D:
+// textura 160x112 projetada em perspectiva sobre o piso da casa.
+function drawCoinIn3D(rx, rz, coinObj, W, H) {
+  const isNear = (rz === 0);
+  const z0 = isNear ? 0.58 : rz + 0.392;
+  const z1 = isNear ? 0.78 : rz + 0.608;
+  const halfW = isNear ? 0.095 : 0.108;
+  const x0 = rx - halfW;
+  const x1 = rx + halfW;
+
+  const yNear = 0.496;
+  const yFar  = isNear ? 0.490 : Math.max(0.475, 0.490 - rz * 0.0035);
+
+  const coinPts = [
+    projectPoint(x0, yNear, z0, W, H),
+    projectPoint(x1, yNear, z0, W, H),
+    projectPoint(x1, yFar,  z1, W, H),
+    projectPoint(x0, yFar,  z1, W, H)
+  ];
+
+  const zCenter = (z0 + z1) * 0.5;
+  const coinCenter = projectPoint(rx, (yNear + yFar) * 0.5, zCenter, W, H);
+  const euclidDist = Math.sqrt(zCenter * zCenter + rx * rx * 0.45);
+  const shade = Math.max(0.18, Math.min(1, 1.08 - euclidDist * 0.11));
+  const isHovered = Boolean(hoveredHitbox && hoveredHitbox.id === coinObj.id);
+
+  const coinImg = OBJECT_TEXTURE_IMAGES.coin_floor;
+  const hasCoinTex = Boolean(
+    renderMode !== 'wireframe' &&
+    coinImg && coinImg.complete && (coinImg.naturalWidth > 0 || coinImg.width > 0) &&
+    keyScratchCtx
+  );
+
+  if (hasCoinTex) {
+    keyScratchCtx.save();
+    keyScratchCtx.clearRect(0, 0, 160, 112);
+    keyScratchCtx.imageSmoothingEnabled = false;
+    keyScratchCtx.globalCompositeOperation = 'source-over';
+    keyScratchCtx.drawImage(coinImg, 0, 0, 160, 112);
+
+    keyScratchCtx.globalCompositeOperation = 'source-atop';
+    if (isHovered) {
+      keyScratchCtx.fillStyle = 'rgba(255, 235, 150, 0.28)';
+      keyScratchCtx.fillRect(0, 0, 160, 112);
+    }
+    const darkAlpha = Math.max(0, Math.min(0.82, 1 - shade));
+    if (darkAlpha > 0.01) {
+      keyScratchCtx.fillStyle = `rgba(4, 7, 12, ${darkAlpha.toFixed(3)})`;
+      keyScratchCtx.fillRect(0, 0, 160, 112);
+    }
+    keyScratchCtx.restore();
+
+    drawPerspectiveFloorTile(fpCtx, keyScratchCanvas, coinPts, z0, z1, H);
+
+    if (renderMode === 'hybrid' || (isHovered && guiMode === 'dev')) {
+      drawQuad(fpCtx, coinPts, null, isHovered ? 'rgba(242, 204, 96, 0.85)' : `rgba(242, 204, 96, ${0.22 * shade})`, isHovered ? 1.8 : 1.0);
+    }
+  } else {
+    drawQuad(fpCtx, coinPts, 'rgba(13, 17, 23, 0.75)', '#f2cc60', 1.5);
+  }
+
+  const hitRadius = Math.max(18, 38 / Math.max(0.5, zCenter));
+  interactiveHitboxes.push({
+    id: coinObj.id,
+    type: 'coin',
+    coinObj,
+    pts: coinPts,
+    center: coinCenter,
+    hitRadius
+  });
+}
+
 let mapSparkAnimLastTick = 0;
 
 function drawEnchantedMapSparks3D(rx, rz, z0, z1, x0, x1, yFloor, shade, W, H) {
