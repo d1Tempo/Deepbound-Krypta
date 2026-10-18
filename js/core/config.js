@@ -1,7 +1,7 @@
 /**
  * js/core/config.js
  * Constantes do grid 36x36, temas de masmorra e variáveis globais do mapa atual
- * (grid, salas, portas, botões, chaves no chão).
+ * (grid, salas, portas, botões, chaves e moedas no chão).
  */
 
 const MAP_SIZE = 36;
@@ -55,5 +55,10 @@ let doors = {};
 let wallButtons = [];
 
 let keysOnFloor = [];
+
+// Moedas (dobrões de ouro) espalhadas pelo mapa atual. Cada item:
+// { id, x, y, place: 'secret' | 'dead_end' | 'room', spot: 'floor', collected }
+// "spot" indica onde o objeto está: hoje só 'floor' (chão); no futuro, 'niche' (nicho na parede).
+let coinsOnFloor = [];
 
 let dungeonMetrics = { remotePct: 30, oneWayPct: 30, deadEndPct: 47 };
