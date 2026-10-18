@@ -222,6 +222,8 @@ function initDungeonTextures() {
     if (iconIron && KEY_TEXTURE_PATHS.iron) iconIron.src = KEY_TEXTURE_PATHS.iron;
     const iconGold = document.getElementById("iconGoldKey");
     if (iconGold && KEY_TEXTURE_PATHS.gold) iconGold.src = KEY_TEXTURE_PATHS.gold;
+        const iconCoin = document.getElementById("iconCoin");
+    if (iconCoin && OBJECT_TEXTURE_PATHS.coin_icon) iconCoin.src = OBJECT_TEXTURE_PATHS.coin_icon;
   }
 }
 
