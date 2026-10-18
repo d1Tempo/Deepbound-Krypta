@@ -225,12 +225,22 @@ function initDungeonTextures() {
     img.src = path;
     KEY_TEXTURE_IMAGES[variant] = img;
   }
+  for (const [variant, path] of Object.entries(OBJECT_TEXTURE_PATHS)) {
+    const img = new Image();
+    img.onload = () => {
+      if (typeof renderFirstPerson === "function" && dungeonMap && dungeonMap.length > 0) {
+        renderFirstPerson();
+      }
+    };
+    img.src = path;
+    OBJECT_TEXTURE_IMAGES[variant] = img;
+  }
   if (typeof document !== "undefined" && document.getElementById) {
     const iconIron = document.getElementById("iconIronKey");
     if (iconIron && KEY_TEXTURE_PATHS.iron) iconIron.src = KEY_TEXTURE_PATHS.iron;
     const iconGold = document.getElementById("iconGoldKey");
     if (iconGold && KEY_TEXTURE_PATHS.gold) iconGold.src = KEY_TEXTURE_PATHS.gold;
-        const iconCoin = document.getElementById("iconCoin");
+    const iconCoin = document.getElementById("iconCoin");
     if (iconCoin && OBJECT_TEXTURE_PATHS.coin_icon) iconCoin.src = OBJECT_TEXTURE_PATHS.coin_icon;
   }
 }
