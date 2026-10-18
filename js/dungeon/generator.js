@@ -18,6 +18,7 @@ function generateProceduralDungeon(mapIndex) {
   const rooms = [];
   const rawDoors = [];
   keysOnFloor = [];
+  coinsOnFloor = [];
 
   currentTheme = DUNGEON_THEMES[(mapIndex - 1 + randInt(0, DUNGEON_THEMES.length - 1)) % DUNGEON_THEMES.length];
 
@@ -1178,6 +1179,101 @@ function generateProceduralDungeon(mapIndex) {
     collected: false
   });
 
+  // G. SORTEIO E POSICIONAMENTO DAS MOEDAS (DOBRÕES DE OURO)
+  //    Quantidade por mapa: 0 (50%), 1 (35%), 2 (10%), 3 (5%).
+  //    Local de cada moeda: passagem secreta (60%), beco sem saída (30%), sala (10%).
+  //    Se o local sorteado não tiver casa livre, tenta os outros na ordem: secreta -> beco -> sala.
+  function rollWeighted(table) {
+    let r = Math.random() * 100;
+    for (const entry of table) {
+      if (r < entry.pct) return entry;
+      r -= entry.pct;
+    }
+    return table[table.length - 1];
+  }
+
+  const coinCountRoll = rollWeighted([
+    { value: 0, pct: 50 },
+    { value: 1, pct: 35 },
+    { value: 2, pct: 10 },
+    { value: 3, pct: 5 }
+  ]).value;
+
+  if (coinCountRoll > 0) {
+    // Casas que não podem receber moeda: com item, ponto de partida e ponto de chegada
+    const coinTaken = new Set(keysOnFloor.map(k => `${k.x},${k.y}`));
+    coinTaken.add(`${START_POS.x},${START_POS.y}`);
+    coinTaken.add(`${GOAL_POS.x},${GOAL_POS.y}`);
+
+    const isCoinTileFree = (x, y) =>
+      x >= 0 && x < MAP_SIZE && y >= 0 && y < MAP_SIZE &&
+      grid[y][x] === TILE_FREE && !coinTaken.has(`${x},${y}`);
+
+    const coinSpots = { secret: [], dead_end: [], room: [] };
+
+    // Passagem secreta: casa escondida atrás da parede de um beco
+    for (const sd of secretExtraDoors) {
+      if (sd.hiddenX !== undefined && isCoinTileFree(sd.hiddenX, sd.hiddenY)) {
+        coinSpots.secret.push({ x: sd.hiddenX, y: sd.hiddenY });
+      }
+    }
+
+    // Beco sem saída: ponta do corredor (os que não guardam chave ou alavanca vêm primeiro)
+    coinSpots.dead_end = shuffleArray(
+      deadEnds.map((de, idx) => ({ x: de.endX, y: de.endY, used: usedDeadEnds.has(idx) }))
+    )
+      .filter(s => isCoinTileFree(s.x, s.y))
+      .sort((a, b) => Number(a.used) - Number(b.used));
+
+    // Sala ou salão: qualquer casa livre dentro de uma sala
+    for (const rm of rooms) {
+      for (let y = rm.y0; y <= rm.y1; y++) {
+        for (let x = rm.x0; x <= rm.x1; x++) {
+          if (isCoinTileFree(x, y)) coinSpots.room.push({ x, y });
+        }
+      }
+    }
+    coinSpots.room = shuffleArray(coinSpots.room);
+
+    const coinPlaces = ['secret', 'dead_end', 'room'];
+    for (let i = 0; i < coinCountRoll; i++) {
+      const rolled = rollWeighted([
+        { value: 'secret', pct: 60 },
+        { value: 'dead_end', pct: 30 },
+        { value: 'room', pct: 10 }
+      ]).value;
+      const tryOrder = [rolled, ...coinPlaces.filter(p => p !== rolled)];
+
+      let chosenPlace = null;
+      let spot = null;
+      for (const place of tryOrder) {
+        while (coinSpots[place].length > 0) {
+          const cand = coinSpots[place].shift();
+          if (isCoinTileFree(cand.x, cand.y)) {
+            chosenPlace = place;
+            spot = cand;
+            break;
+          }
+        }
+        if (spot) break;
+      }
+      if (!spot) break;
+
+      coinTaken.add(`${spot.x},${spot.y}`);
+      coinsOnFloor.push({
+        id: `coin-${i + 1}`,
+        type: 'coin',
+        name: 'Dobrão de Ouro',
+        x: spot.x,
+        y: spot.y,
+        place: chosenPlace,
+        rolledPlace: rolled,
+        spot: 'floor',
+        collected: false
+      });
+    }
+  }
+  
   for (const d of allProgDoors) {
     rawDoors.push({
       x: d.x,
