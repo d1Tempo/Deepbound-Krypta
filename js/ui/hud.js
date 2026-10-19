@@ -26,32 +26,45 @@ function updateInventoryHUD() {
       `<span>Secretas: ${dungeonMetrics.secretCount ?? 0}</span>`;
   }
 
+  // Os dobrões de ouro formam uma pilha que ocupa sempre o slot 1 (quando o jogador tem ao menos 1 moeda);
+  // os demais itens do inventário vêm depois dela. As moedas ficam em player.coins e não são apagadas ao trocar de mapa.
+  const coinStack = player.coins > 0
+    ? [{ id: 'coin-stack', type: 'coin', name: 'Dobrões de Ouro', count: player.coins }]
+    : [];
+  const displayItems = coinStack.concat(playerInventoryItems);
+
   // Atualiza a janela horizontal de Inventário do jogador (20 slots)
   const invGrid = document.getElementById('playerInventoryGrid');
   const invCount = document.getElementById('playerInvCount');
   if (invCount) {
-    invCount.textContent = `${playerInventoryItems.length} / ${INVENTORY_SLOTS_COUNT}`;
+    invCount.textContent = `${displayItems.length} / ${INVENTORY_SLOTS_COUNT}`;
   }
   if (invGrid) {
     let htmlSlots = '';
     for (let i = 0; i < INVENTORY_SLOTS_COUNT; i++) {
-      const item = playerInventoryItems[i];
+      const item = displayItems[i];
       if (item) {
-        const iconUri = (typeof KEY_TEXTURE_PATHS !== 'undefined' && KEY_TEXTURE_PATHS[item.type])
-          ? KEY_TEXTURE_PATHS[item.type]
-          : '';
+        const isCoin = (item.type === 'coin');
+        const iconUri = (isCoin && typeof OBJECT_TEXTURE_PATHS !== 'undefined')
+          ? OBJECT_TEXTURE_PATHS.coin_icon
+          : ((typeof KEY_TEXTURE_PATHS !== 'undefined' && KEY_TEXTURE_PATHS[item.type])
+            ? KEY_TEXTURE_PATHS[item.type]
+            : '');
         const isMap = (item.type === 'map');
         const activeClass = (isMap && isEnchantedMapOpen) ? ' active-map-slot' : '';
         const burnClass   = (isMap && isMapBurning) ? ' burning-map-slot' : '';
+        const maxClass    = (isCoin && item.count >= MAX_COINS) ? ' at-max' : '';
         const clickAttr   = isMap ? ' onclick="toggleEnchantedMapView()"' : '';
         const slotTitle   = isMap
           ? `${item.name} — Clique para ${isEnchantedMapOpen ? 'fechar o mapa' : 'abrir o mapa da masmorra'}`
-          : item.name;
+          : (isCoin ? `${item.name}: ${item.count} (máximo ${MAX_COINS})` : item.name);
         const fireOverlay = (isMap && isMapBurning) ? '<div class="map-fire-fx"><span>🔥</span></div>' : '';
-        const slotClass   = `inv-slot filled filled-${item.type}${activeClass}${burnClass}`;
+        const countBadge  = isCoin ? `<span class="inv-slot-count">${item.count}</span>` : '';
+        const slotClass   = `inv-slot filled filled-${item.type}${activeClass}${burnClass}${maxClass}`;
         htmlSlots += `<div class="${slotClass}" title="${slotTitle}"${clickAttr}>` +
           (iconUri ? `<img src="${iconUri}" alt="${item.name}" />` : '') +
           fireOverlay +
+          countBadge +
           `<span class="inv-slot-index">${i + 1}</span>` +
           `</div>`;
       } else {
