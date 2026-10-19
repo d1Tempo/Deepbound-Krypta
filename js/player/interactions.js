@@ -66,7 +66,7 @@ function collectCoinByClick(c) {
   c.collected = true;
   player.coins = Math.min(MAX_COINS, player.coins + 1);
   showToast('🪙 Você pegou um Dobrão de Ouro do chão.', 'warn');
-  if (typeof updateCoinHUD === 'function') updateCoinHUD();
+  updateInventoryHUD();
 }
 
 function checkKeyPickupAt(x, y) {
