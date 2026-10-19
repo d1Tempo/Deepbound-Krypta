@@ -1295,6 +1295,151 @@ function generateProceduralDungeon(mapIndex) {
     rawDoors.push(sd);
   }
 
+  // H. VARIANTES DE FORMATO DAS SALAS (CANTOS CORTADOS): L, Z, T e cruz.
+  //    Roda por último, com portas, corredores, chaves, moedas e Mapa já definidos, e desfaz qualquer corte
+  //    que bloqueie uma entrada, cubra um item, reduza demais a sala ou isole parte da masmorra.
+  function applyRoomShapes() {
+    const protectedTiles = new Set([
+      `${START_POS.x},${START_POS.y}`,
+      `${GOAL_POS.x},${GOAL_POS.y}`
+    ]);
+    for (const k of keysOnFloor) protectedTiles.add(`${k.x},${k.y}`);
+    for (const c of coinsOnFloor) protectedTiles.add(`${c.x},${c.y}`);
+
+    const isOpenTile = (x, y) =>
+      x >= 0 && x < MAP_SIZE && y >= 0 && y < MAP_SIZE && grid[y][x] !== TILE_WALL;
+
+    function reachableCount() {
+      const seen = new Set([`${START_POS.x},${START_POS.y}`]);
+      const stack = [[START_POS.x, START_POS.y]];
+      while (stack.length > 0) {
+        const [cx, cy] = stack.pop();
+        for (const d of DIRECTIONS) {
+          const nx = cx + d.dx;
+          const ny = cy + d.dy;
+          const key = `${nx},${ny}`;
+          if (!seen.has(key) && isOpenTile(nx, ny)) {
+            seen.add(key);
+            stack.push([nx, ny]);
+          }
+        }
+      }
+      return seen.size;
+    }
+
+    function touchesOutsideOpening(node, x, y) {
+      for (const d of DIRECTIONS) {
+        const nx = x + d.dx;
+        const ny = y + d.dy;
+        const inside = nx >= node.x0 && nx <= node.x1 && ny >= node.y0 && ny <= node.y1;
+        if (!inside && isOpenTile(nx, ny)) return true;
+      }
+      return false;
+    }
+
+    function cornerTiles(node, corner, cw, ch) {
+      const right = corner[1] === 'R';
+      const bottom = corner[0] === 'B';
+      const xa = right ? node.x1 - cw + 1 : node.x0;
+      const xb = right ? node.x1 : node.x0 + cw - 1;
+      const ya = bottom ? node.y1 - ch + 1 : node.y0;
+      const yb = bottom ? node.y1 : node.y0 + ch - 1;
+      const tiles = [];
+      for (let y = ya; y <= yb; y++) {
+        for (let x = xa; x <= xb; x++) tiles.push({ x, y });
+      }
+      return tiles;
+    }
+
+    function planShape(node, shapeId) {
+      const w = node.x1 - node.x0 + 1;
+      const h = node.y1 - node.y0 + 1;
+      let corners, maxCw, maxCh;
+      if (shapeId === 'L') {
+        corners = [['TL', 'TR', 'BL', 'BR'][randInt(0, 3)]];
+        maxCw = w - 3;
+        maxCh = h - 3;
+      } else if (shapeId === 'Z') {
+        corners = Math.random() < 0.5 ? ['TL', 'BR'] : ['TR', 'BL'];
+        maxCw = Math.min(w - 3, Math.floor((w - 1) / 2));
+        maxCh = Math.min(h - 3, Math.floor((h - 1) / 2));
+      } else if (shapeId === 'T') {
+        const pairs = [['TL', 'TR'], ['BL', 'BR'], ['TL', 'BL'], ['TR', 'BR']];
+        corners = pairs[randInt(0, 3)];
+        if (corners[0][0] === corners[1][0]) {
+          maxCw = Math.floor((w - 3) / 2);
+          maxCh = h - 3;
+        } else {
+          maxCw = w - 3;
+          maxCh = Math.floor((h - 3) / 2);
+        }
+      } else {
+        corners = ['TL', 'TR', 'BL', 'BR'];
+        maxCw = Math.floor((w - 3) / 2);
+        maxCh = Math.floor((h - 3) / 2);
+      }
+      if (maxCw < 1 || maxCh < 1) return null;
+      const tiles = [];
+      for (const c of corners) {
+        tiles.push(...cornerTiles(node, c, randInt(1, maxCw), randInt(1, maxCh)));
+      }
+      return tiles;
+    }
+
+    function tryCut(node, tiles) {
+      const uniq = new Map();
+      for (const t of tiles) uniq.set(`${t.x},${t.y}`, t);
+      const list = [...uniq.values()];
+      const area = (node.x1 - node.x0 + 1) * (node.y1 - node.y0 + 1);
+      if (area - list.length < area * 0.55) return false;
+      for (const t of list) {
+        if (protectedTiles.has(`${t.x},${t.y}`)) return false;
+        if (grid[t.y][t.x] !== TILE_FREE) return false;
+        if (touchesOutsideOpening(node, t.x, t.y)) return false;
+      }
+      const before = reachableCount();
+      for (const t of list) grid[t.y][t.x] = TILE_WALL;
+      const after = reachableCount();
+      if (after !== before - list.length) {
+        for (const t of list) grid[t.y][t.x] = TILE_FREE;
+        return false;
+      }
+      return true;
+    }
+
+    const SHAPE_TABLE = [
+      { id: 'none',  pct: 40 },
+      { id: 'L',     pct: 30 },
+      { id: 'Z',     pct: 15 },
+      { id: 'T',     pct: 10 },
+      { id: 'cross', pct: 5 }
+    ];
+    const SHAPE_LABEL = { L: 'em L', Z: 'em Z', T: 'em T', cross: 'em cruz' };
+
+    for (let sy = 0; sy < 3; sy++) {
+      for (let sx = 0; sx < 3; sx++) {
+        if ((sx === startSecX && sy === startSecY) || (sx === goalSecX && sy === goalSecY)) continue;
+        const node = sectorNodes[sy][sx];
+        for (let attempt = 0; attempt < 3; attempt++) {
+          let roll = Math.random() * 100;
+          let shapeId = 'none';
+          for (const s of SHAPE_TABLE) {
+            if (roll < s.pct) { shapeId = s.id; break; }
+            roll -= s.pct;
+          }
+          if (shapeId === 'none') break;
+          const tiles = planShape(node, shapeId);
+          if (tiles && tryCut(node, tiles)) {
+            const roomObj = rooms.find(r => r.x0 === node.x0 && r.y0 === node.y0 && r.x1 === node.x1 && r.y1 === node.y1);
+            if (roomObj) roomObj.name = roomObj.name.replace(/\)$/, `, ${SHAPE_LABEL[shapeId]})`);
+            break;
+          }
+        }
+      }
+    }
+  }
+  applyRoomShapes();
+  
   const totalOpenableDoors = allProgDoors.length;
   const remoteCount = allProgDoors.filter(d => d.isRemote).length;
   const oneWayCount = allProgDoors.filter(d => d.isOneWay).length;
