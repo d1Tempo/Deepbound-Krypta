@@ -30,7 +30,7 @@ function findHitboxAt(mx, my) {
   // 1. Prioridade máxima para chaves caídas no chão (evita que paredes/botões laterais em rz=0 interceptem o clique na chave)
   for (let i = interactiveHitboxes.length - 1; i >= 0; i--) {
     const item = interactiveHitboxes[i];
-    if (item.type === 'key') {
+    if (item.type === 'key' || item.type === 'coin') {
       if (item.pts && pointInPolygon(mx, my, item.pts)) {
         return item;
       }
@@ -68,8 +68,7 @@ fpCanvas.addEventListener('mousemove', (e) => {
   const hit = findHitboxAt(mousePos.x, mousePos.y);
   const changed = (hit?.id !== hoveredHitbox?.id);
   hoveredHitbox = hit;
-  fpCanvas.style.cursor = (hit && (hit.type === 'button' || hit.type === 'key')) ? 'pointer' : 'default';
-  if (changed) {
+  fpCanvas.style.cursor = (hit && (hit.type === 'button' || hit.type === 'key' || hit.type === 'coin')) ? 'pointer' : 'default';  if (changed) {
     renderFirstPerson();
   }
 });
@@ -94,6 +93,15 @@ fpCanvas.addEventListener('click', (e) => {
       renderMinimap();
     } else {
       showToast(k.type === 'map' ? 'Você está longe demais do Mapa Encantado. Aproxime-se para pegá-lo do chão.' : `Você está longe demais da ${k.name}. Aproxime-se para pegá-la do chão.`, 'info');
+    }
+    } else if (hit.type === 'coin') {
+    const c = hit.coinObj;
+    const dist = Math.abs(player.x - c.x) + Math.abs(player.y - c.y);
+    if (dist <= 1) {
+      collectCoinByClick(c);
+      renderFirstPerson();
+    } else {
+      showToast('Você está longe demais do Dobrão de Ouro. Aproxime-se para pegá-lo do chão.', 'info');
     }
   } else if (hit.type === 'button') {
     if (isPlayerAdjacentToButton(hit.btnConfig)) {
