@@ -13,7 +13,7 @@
  * - Pelo menos 20% das portas (30%) são Portas de Via Única que se trancam ao atravessar.
  * - Pelo menos 30% dos corredores (~47% a 54%) que saem das salas terminam em becos sem saída.
  */
-function generateProceduralDungeon(mapIndex) {
+function generateProceduralDungeonOnce(mapIndex) {
   const grid = Array.from({ length: MAP_SIZE }, () => Array(MAP_SIZE).fill(TILE_WALL));
   const rooms = [];
   const rawDoors = [];
@@ -196,7 +196,32 @@ function generateProceduralDungeon(mapIndex) {
     }
   }
 
-  dfsMaze(startSecX, startSecY);
+   // Árvore geradora por "crescimento": a cada passo continua do setor mais recente (caminhos longos, como o DFS)
+   // ou volta a um setor qualquer já ligado (cria ramos). TREE_WINDING = chance de continuar do mais recente.
+   const TREE_WINDING = 0.75;
+   const treeActive = [[startSecX, startSecY]];
+   visitedSec[startSecY][startSecX] = true;
+   while (treeActive.length > 0) {
+     const pickIdx = Math.random() < TREE_WINDING ? treeActive.length - 1 : randInt(0, treeActive.length - 1);
+     const [cx, cy] = treeActive[pickIdx];
+     const nbs = shuffleArray([
+       { nx: cx + 1, ny: cy },
+       { nx: cx - 1, ny: cy },
+       { nx: cx, ny: cy + 1 },
+       { nx: cx, ny: cy - 1 }
+     ]).filter(({ nx, ny }) => nx >= 0 && nx < 3 && ny >= 0 && ny < 3 && !visitedSec[ny][nx]);
+     if (nbs.length === 0) {
+       treeActive.splice(pickIdx, 1);
+       continue;
+     }
+     const { nx, ny } = nbs[0];
+     visitedSec[ny][nx] = true;
+     connectedEdges.add(edgeKey(cx, cy, nx, ny));
+     treeEdges.push({ ax: cx, ay: cy, bx: nx, by: ny });
+     adjGraph[`${cx},${cy}`].push(`${nx},${ny}`);
+     adjGraph[`${nx},${ny}`].push(`${cx},${cy}`);
+     treeActive.push([nx, ny]);
+   }
 
   // 3. Calcula o caminho único na árvore (Spine: v_0 -> v_1 -> ... -> v_L), `treeDepth` e `nodeStage`
   const startKey = `${startSecX},${startSecY}`;
@@ -754,7 +779,9 @@ function generateProceduralDungeon(mapIndex) {
     });
 
     if (candidates.length === 0) return null;
-      const pick = candidates[randInt(0, candidates.length - 1)];
+       const nonStart = candidates.filter(c => c.de.roomId !== startKey);
+       const pool = nonStart.length > 0 ? nonStart : candidates;
+       const pick = pool[randInt(0, pool.length - 1)];
       usedDeadEnds.add(pick.idx);
       return pick.de;
   }
@@ -1455,3 +1482,26 @@ function generateProceduralDungeon(mapIndex) {
 
   return { grid, rooms, doorList: rawDoors };
 }
+
+   // Gera a masmorra e confere se todas as portas remotas têm botão e se as 3 chaves existem;
+   // se algo faltar ou o gerador falhar, refaz o sorteio (até 30 vezes).
+   let lastGenerationAttempts = 1;
+
+   function generateProceduralDungeon(mapIndex) {
+     let lastResult = null;
+     for (let attempt = 0; attempt < 30; attempt++) {
+       let res = null;
+       try {
+         res = generateProceduralDungeonOnce(mapIndex);
+       } catch (err) {
+         res = null;
+       }
+       if (!res) continue;
+       lastResult = res;
+       lastGenerationAttempts = attempt + 1;
+       const remotesOk = res.doorList.every(d => !d.isRemote || d.remoteDeadEnd);
+       const itemsOk = ['iron', 'gold', 'map'].every(t => keysOnFloor.some(k => k.type === t));
+       if (remotesOk && itemsOk) return res;
+     }
+     return lastResult || generateProceduralDungeonOnce(mapIndex);
+   }
