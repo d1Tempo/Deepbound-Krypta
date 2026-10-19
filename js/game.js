@@ -44,6 +44,7 @@ function loadMap(mapIndex) {
 
 function resetGame() {
   player.steps = 0;
+  player.coins = 0;
   loadMap(1);
   showToast(`Nova Masmorra gerada: ${currentTheme.name}!`, 'info');
 }
