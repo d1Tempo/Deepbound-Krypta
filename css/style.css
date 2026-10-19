@@ -1012,13 +1012,9 @@ body.player-gui .workspace {
   background: rgba(210, 153, 34, 0.12);
 }
 
-.inv-slot.filled-coin .inv-slot-index {
-  display: none;
-}
-
 .inv-slot-count {
   position: absolute;
-  bottom: 1px;
+  top: 1px;
   right: 3px;
   font-family: 'Consolas', 'Courier New', monospace;
   font-size: 0.74rem;
