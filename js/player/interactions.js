@@ -57,6 +57,18 @@ function collectKeyByClick(k) {
   updateInventoryHUD();
 }
 
+function collectCoinByClick(c) {
+  if (!c || c.collected) return;
+  if (player.coins >= MAX_COINS) {
+    showToast(`Sua bolsa está cheia: você não pode carregar mais de ${MAX_COINS} moedas.`, 'warn');
+    return;
+  }
+  c.collected = true;
+  player.coins = Math.min(MAX_COINS, player.coins + 1);
+  showToast('🪙 Você pegou um Dobrão de Ouro do chão.', 'warn');
+  if (typeof updateCoinHUD === 'function') updateCoinHUD();
+}
+
 function checkKeyPickupAt(x, y) {
   for (const k of keysOnFloor) {
     if (!k.collected && k.x === x && k.y === y) {
