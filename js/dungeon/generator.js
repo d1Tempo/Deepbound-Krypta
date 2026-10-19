@@ -754,8 +754,9 @@ function generateProceduralDungeon(mapIndex) {
     });
 
     if (candidates.length === 0) return null;
-    usedDeadEnds.add(candidates[0].idx);
-    return candidates[0].de;
+      const pick = candidates[randInt(0, candidates.length - 1)];
+      usedDeadEnds.add(pick.idx);
+      return pick.de;
   }
 
   // Decide se este mapa tera passagens secretas e quais modalidades (Mapa 1 tem todas as 3; demais mapas ~70% tem de 1 a 3, ~30% tem 0)
@@ -774,7 +775,7 @@ function generateProceduralDungeon(mapIndex) {
       return b.depthAfter - a.depthAfter;
     });
 
-  const remDoor1 = zone1Doors[0];
+  const remDoor1 = zone1Doors[randInt(0, zone1Doors.length - 1)];
   remDoor1.isRemote = true;
   remDoor1.remoteId = 1;
   // Botao R1 fica em uma sala da Zona 1 fora da subarvore de R1 (100% acessivel desde a partida sem precisar abrir R1)
