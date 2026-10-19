@@ -157,7 +157,14 @@ function renderFirstPerson() {
           drawDoorStructure(rx, rz, door, W, H);
         }
       }
-
+      
+      // Desenha as moedas (dobrões de ouro) caídas no chão
+      for (const c of coinsOnFloor) {
+        if (!c.collected && c.x === mx && c.y === my && rz >= 0) {
+          drawCoinIn3D(rx, rz, c, W, H);
+        }
+      }
+      
       // Desenha a chave caída no chão no final do beco sem saída (visível também em rz === 0 aos pés do jogador)
       for (const k of keysOnFloor) {
         if (!k.collected && k.x === mx && k.y === my && rz >= 0) {
