@@ -1483,25 +1483,100 @@ function generateProceduralDungeonOnce(mapIndex) {
   return { grid, rooms, doorList: rawDoors };
 }
 
-   // Gera a masmorra e confere se todas as portas remotas têm botão e se as 3 chaves existem;
-   // se algo faltar ou o gerador falhar, refaz o sorteio (até 30 vezes).
-   let lastGenerationAttempts = 1;
 
-   function generateProceduralDungeon(mapIndex) {
-     let lastResult = null;
-     for (let attempt = 0; attempt < 30; attempt++) {
-       let res = null;
-       try {
-         res = generateProceduralDungeonOnce(mapIndex);
-       } catch (err) {
-         res = null;
-       }
-       if (!res) continue;
-       lastResult = res;
-       lastGenerationAttempts = attempt + 1;
-       const remotesOk = res.doorList.every(d => !d.isRemote || d.remoteDeadEnd);
-       const itemsOk = ['iron', 'gold', 'map'].every(t => keysOnFloor.some(k => k.type === t));
-       if (remotesOk && itemsOk) return res;
-     }
-     return lastResult || generateProceduralDungeonOnce(mapIndex);
-   }
+// Verificador exato de solução. Simula o jogador: só atravessa portas de via única para frente, abre portas com chave,
+// aciona botões remotos e alavancas de passagens secretas ao ficar na casa certa, e precisa chegar à saída.
+// Também confere que as chaves e o Mapa existem e estão em casas abertas e que toda porta remota tem botão.
+function isDungeonSolvable(res) {
+  const g = res.grid;
+  const n = MAP_SIZE;
+  for (const t of ['iron', 'gold', 'map']) {
+    const k = keysOnFloor.find(kk => kk.type === t);
+    if (!k || k.x < 0 || k.x >= n || k.y < 0 || k.y >= n || g[k.y][k.x] === TILE_WALL) return false;
+  }
+  if (res.doorList.some(d => d.isRemote && !d.remoteDeadEnd)) return false;
+
+  const doorAt = new Map();
+  res.doorList.forEach(d => {
+    if (d.type !== TILE_ENTRANCE_DOOR && d.type !== TILE_SPECIAL_DOOR) doorAt.set(d.x + ',' + d.y, d);
+  });
+  const switches = [];
+  const bitOfDoor = new Map();
+  const leverAt = new Map();
+  res.doorList.forEach(d => {
+    if (d.type === TILE_ENTRANCE_DOOR || d.type === TILE_SPECIAL_DOOR) return;
+    let k = null;
+    if (d.isRemote && d.remoteDeadEnd) k = d.remoteDeadEnd.endX + ',' + d.remoteDeadEnd.endY;
+    else if (d.isSecret && d.secretLeverSlot) k = d.secretLeverSlot.adjX + ',' + d.secretLeverSlot.adjY;
+    if (k === null) return;
+    const b = switches.length;
+    switches.push(d);
+    bitOfDoor.set(d, b);
+    if (!leverAt.has(k)) leverAt.set(k, []);
+    leverAt.get(k).push(b);
+  });
+  const IRON = switches.length;
+  const GOLD = switches.length + 1;
+  const keyAt = new Map();
+  for (const k of keysOnFloor) {
+    if (k.type === 'iron') keyAt.set(k.x + ',' + k.y, IRON);
+    if (k.type === 'gold') keyAt.set(k.x + ',' + k.y, GOLD);
+  }
+  const isOpen = (x, y) => x >= 0 && x < n && y >= 0 && y < n && g[y][x] !== TILE_WALL;
+  const collect = (x, y, m) => {
+    const k = x + ',' + y;
+    if (keyAt.has(k)) m |= (1 << keyAt.get(k));
+    const lv = leverAt.get(k);
+    if (lv) for (const b of lv) m |= (1 << b);
+    return m;
+  };
+
+  const seen = new Set();
+  const stack = [[START_POS.x, START_POS.y, collect(START_POS.x, START_POS.y, 0)]];
+  while (stack.length > 0) {
+    const [x, y, m] = stack.pop();
+    const sk = (y * n + x) * 65536 + m;
+    if (seen.has(sk)) continue;
+    seen.add(sk);
+    if (x === GOAL_POS.x && y === GOAL_POS.y) return true;
+    const here = doorAt.get(x + ',' + y);
+    for (let dir = 0; dir < 4; dir++) {
+      if (here && here.isOneWay && dir !== here.forwardDir) continue;
+      const nx = x + DIRECTIONS[dir].dx;
+      const ny = y + DIRECTIONS[dir].dy;
+      if (!isOpen(nx, ny)) continue;
+      const d = doorAt.get(nx + ',' + ny);
+      if (d) {
+        if (d.isOneWay && dir !== d.forwardDir) continue;
+        if (d.lockType === 'iron' && !(m & (1 << IRON))) continue;
+        if (d.lockType === 'gold' && !(m & (1 << GOLD))) continue;
+        if (d.isRemote || d.isSecret) {
+          const b = bitOfDoor.get(d);
+          if (b === undefined || !(m & (1 << b))) continue;
+        }
+      }
+      stack.push([nx, ny, collect(nx, ny, m)]);
+    }
+  }
+  return false;
+}
+
+// Gera a masmorra e só a entrega se o verificador confirmar que ela tem solução;
+// caso contrário, ou se o gerador falhar, refaz o sorteio (até 40 vezes).
+let lastGenerationAttempts = 1;
+
+function generateProceduralDungeon(mapIndex) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    let res = null;
+    try {
+      res = generateProceduralDungeonOnce(mapIndex);
+    } catch (err) {
+      res = null;
+    }
+    if (!res) continue;
+    lastGenerationAttempts = attempt + 1;
+    if (isDungeonSolvable(res)) return res;
+  }
+  lastGenerationAttempts = 41;
+  return generateProceduralDungeonOnce(mapIndex);
+}
