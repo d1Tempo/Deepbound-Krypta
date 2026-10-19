@@ -1004,3 +1004,31 @@ body.player-gui .workspace {
   background: linear-gradient(90deg, #15803d 0%, #22c55e 55%, #4ade80 100%);
   box-shadow: 0 0 8px rgba(34, 197, 94, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.25);
 }
+
+
+/* Pilha de moedas (dobrões de ouro) no inventário: ícone + quantidade */
+.inv-slot.filled-coin {
+  border-color: rgba(242, 204, 96, 0.70);
+  background: rgba(210, 153, 34, 0.12);
+}
+
+.inv-slot.filled-coin .inv-slot-index {
+  display: none;
+}
+
+.inv-slot-count {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #f2cc60;
+  text-shadow: 0 1px 2px #000, 0 0 3px #000;
+  pointer-events: none;
+}
+
+/* Destaque quando o jogador atinge o limite de moedas */
+.inv-slot.filled-coin.at-max {
+  box-shadow: 0 0 8px rgba(242, 204, 96, 0.45), inset 0 0 8px rgba(242, 204, 96, 0.2);
+}
