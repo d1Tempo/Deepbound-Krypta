@@ -147,7 +147,7 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 
 4. **Seleção.** Clicar no rosto seleciona o personagem. A área de **Inventário** passa a mostrar **somente os itens daquele personagem**, e o título indica de quem é: `Inventário | Nome do personagem`.
 
-5. **Trocar de posição.** Clicar e **segurar** o rosto de um personagem e **arrastá-lo** até o slot de outro faz os dois trocarem de posição (inclusive entre frente e trás). Deve funcionar com mouse e com toque (segurar). A seleção continua no mesmo personagem depois da troca. **Durante uma batalha a troca de posição não é permitida.**
+5. **Trocar de posição.** Clicar e **segurar** o rosto de um personagem e **arrastá-lo** até o slot de outro faz os dois trocarem de posição (inclusive entre frente e trás). Deve funcionar com mouse e com toque (segurar). A seleção continua no mesmo personagem depois da troca. **Durante uma batalha a troca de posição não é permitida**, com uma única exceção: quando um personagem da frente cai, um de trás pode **avançar para o lugar vago** (veja a diretriz 10).
 
 6. **Ficha do personagem.** Um **duplo clique** em um personagem troca a janela dos 4 slots por uma janela com os **atributos, habilidades e estatísticas** dele, com uma **miniatura do rosto** para deixar claro de quem é. Clicar na miniatura ou em um ícone de fechar (✕) volta para os 4 slots. O primeiro clique do duplo clique apenas seleciona o personagem, sem efeito colateral. Durante uma batalha, o tempo do turno **continua correndo** com a ficha aberta.
 
@@ -224,49 +224,70 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 
 10. **Combate por turnos, com tempo limite para cada ação.** Durante as batalhas o jogo é **por turnos**, e cada personagem tem **10 segundos** (constante `COMBAT_TURN_SECONDS`, ajustável) para executar a sua ação. Se o jogador não agir com aquele personagem nesse tempo, o personagem **perde o turno** e a vez passa ao próximo.
 
-    - **O contador de tempo só aparece durante as batalhas.** Fora delas, não há contagem de tempo.
+    **Quando há batalha.** Depende da posição da equipe em relação ao grupo de inimigos:
+
+    | Situação                                                                                   | Contador de tempo | Quem ataca                                                         |
+    | ------------------------------------------------------------------------------------------ | ----------------- | ------------------------------------------------------------------ |
+    | Há **uma casa vazia** entre a equipe e os inimigos (ou não há inimigos)                    | não aparece       | ninguém; a equipe **não sofre dano**                               |
+    | A equipe está **de frente** para os inimigos, em casa adjacente                            | **aparece**       | batalha por turnos: os dois lados                                  |
+    | A equipe está em casa adjacente aos inimigos, mas **não de frente** (por exemplo, girou)   | some              | **só os inimigos atacam**; a equipe sofre dano e não consegue atacar |
+
+    A equipe só deixa de sofrer dano quando consegue colocar **uma casa vazia** entre ela e os inimigos. O contador só aparece na segunda situação; fora dela não há contagem de tempo.
+
+    **Movimento livre.** Andar **para trás ou para os lados** é livre e não consome o turno de ninguém. Se isso coloca uma casa vazia entre a equipe e os inimigos, o contador **encerra**. Se o inimigo avançar, ou se a equipe voltar a avançar até a casa adjacente, o contador e os turnos **voltam**.
+
+    **Ritmo dos inimigos fora do contador (proposta, a calibrar).** Quando os inimigos estão em casa adjacente e a equipe não está de frente, eles atacam **de tempos em tempos**: uma rodada a cada **8 segundos** (`ENEMY_IDLE_ATTACK_SECONDS`), com uma **carência de 3 segundos** antes da primeira rodada (`ENEMY_IDLE_GRACE_SECONDS`), contada a partir do início do contato. Fugir leva uma só tecla (um passo para trás ou para o lado), então a carência dá tempo de reagir antes do primeiro golpe. Os inimigos podem **perseguir** a equipe que foge: proposta de **1 casa a cada 4 segundos** (`ENEMY_STEP_SECONDS`, menos para inimigos rápidos e mais para lentos, conforme o deslocamento do SRD), o que permite escapar, a não ser que a equipe esteja encurralada. Em uma simulação com números do SRD, nesse ritmo um goblin sozinho não derrota o guerreiro nem o paladino em menos de 10 segundos, e a mediana até a morte do guerreiro é de cerca de 43 segundos. Contra inimigos fortes (como um ogro), a Vida de nível 1 é frágil em qualquer ritmo; por isso o equilíbrio de quais monstros aparecem em cada mapa é o que protege a equipe.
+
+    **Segunda fileira e avanço.** Os inimigos da segunda fileira atacam **somente se tiverem arma de longo alcance** (lanças, arco e flecha). Quando um inimigo da frente cai, um de trás pode **avançar para o lugar dele**. O mesmo vale para a equipe: quando um personagem da frente cai, um de trás pode avançar para o lugar vago, e isso **consome o turno do personagem que avança**. É a única troca de posição permitida durante a batalha.
+
     - **Uma ação por turno:** atacar com uma das mãos, conjurar um scroll, beber uma poção ou "Passar" (botão explícito, para quem quer abrir mão do turno sem esperar o tempo acabar).
     - **A HUD mostra de quem é a vez:** o slot do personagem ativo fica em destaque, com uma **barra de contagem regressiva**. Ao esgotar o tempo, aparece um aviso de "turno perdido".
-    - **Só o personagem da vez age.** Clicar nas mãos dos outros não tem efeito durante a batalha. Selecionar um personagem para ver o inventário e abrir a ficha continuam permitidos, e **o tempo continua correndo com a ficha aberta**. **Trocar a posição dos personagens não é permitido durante a batalha.**
+    - **Só o personagem da vez age.** Clicar nas mãos dos outros não tem efeito durante a batalha. Selecionar um personagem para ver o inventário e abrir a ficha continuam permitidos, e **o tempo continua correndo com a ficha aberta**. **Trocar a posição dos personagens não é permitido durante a batalha**, exceto avançar para o lugar vago de um companheiro caído da frente (veja "Segunda fileira e avanço").
     - **Ordem dos turnos (proposta, a confirmar):** iniciativa do SRD, isto é, um d20 mais o modificador de Destreza de cada combatente, equipe e inimigos juntos, do maior para o menor. Os turnos dos inimigos são automáticos, sem tempo.
     - **Pausa (proposta):** o tempo pausa quando a aba do navegador fica oculta e quando um menu do jogo está aberto, para o jogador não perder o turno por algo fora do jogo. A ficha **não** pausa o tempo.
     - **Acessibilidade (proposta):** nas configurações, uma opção de tempo estendido ou sem limite, para quem não consegue jogar com pressão de tempo.
 
     **Inimigos à frente da equipe.** Pode haver de **1 a 4** inimigos na casa à frente da equipe, agrupados em **pares** (interpretação a confirmar): 1 inimigo fica sozinho; 2 formam uma fileira de 2; 3 formam uma fileira de 2 e, atrás, 1; 4 formam um bloco 2 × 2.
 
-    **Ataque sem escolha de alvo.** O jogador não escolhe o alvo. Ao clicar na arma que está usando, o personagem ataca o **primeiro inimigo exatamente à frente dele** (o da mesma coluna, na fileira inimiga mais próxima).
+    **Ataque sem escolha de alvo.** O jogador não escolhe o alvo. Ao clicar na arma que está usando, o personagem ataca o **primeiro inimigo exatamente à frente dele** (o da mesma coluna, na fileira inimiga mais próxima). Se não houver inimigo na sua coluna, o ataque acerta o **inimigo mais próximo**.
 
     - Armas de **longo alcance** (arcos, bestas, armas de arremesso), que os personagens da **fileira de trás** podem usar, atacam **qualquer inimigo, escolhido ao acaso**.
     - **Lanças empunhadas** (não arremessadas) atacam os inimigos da **primeira fileira** inimiga, mesmo nas mãos de um personagem de trás.
 
-    **Fuga.** A equipe foge andando **para trás ou para os lados**, saindo da casa adjacente à dos inimigos. **Apenas girar** faz a equipe deixar de atacar, mas ela **continua podendo receber dano** enquanto permanecer na casa adjacente à dos inimigos.
+    **Magias e preces.** Contra inimigos, o alvo é **escolhido ao acaso**. Quando o alvo é **amigo** (curas e melhorias), o jogador o escolhe **clicando na foto** do personagem na janela da equipe.
+
+    **Ataques dos inimigos.** Cada inimigo ataca quem está **à sua frente, no início da fileira** (o personagem da frente da sua coluna). Se esse personagem cair, o ataque passa ao **próximo da mesma fileira** (o de trás). Interpretação a confirmar: aqui "fileira" é a linha de personagens à frente de cada inimigo, da frente para trás.
+
+    **Fuga.** A equipe foge andando **para trás ou para os lados**, até colocar uma casa vazia entre ela e os inimigos. **Apenas girar** não é fuga: a equipe deixa de atacar e continua sofrendo dano se estiver em casa adjacente.
 
 ### Decisões já tomadas
 
 - Combate **por turnos**, com **10 segundos** por ação e perda do turno se o tempo acabar.
-- O contador de tempo só aparece em batalha; o tempo **corre com a ficha aberta**.
-- **Não se troca a posição** dos personagens durante a batalha.
-- **De 1 a 4 inimigos** à frente da equipe, agrupados em pares.
-- **Sem escolha de alvo:** a arma ataca o primeiro inimigo exatamente à frente; armas de longo alcance de quem está atrás atacam ao acaso; lanças empunhadas atacam a primeira fileira inimiga.
+- O contador de tempo só aparece quando a equipe está **de frente** para os inimigos, em casa adjacente; o tempo **corre com a ficha aberta**.
+- Com os inimigos em casa adjacente e a equipe **não de frente**, só os inimigos atacam, **de tempos em tempos** (proposta: rodadas de 8 s, carência de 3 s). A equipe só fica a salvo com **uma casa vazia** entre ela e os inimigos.
+- **Andar para trás ou para os lados é livre** e encerra o contador; se o inimigo avançar ou a equipe voltar a avançar, o contador e os turnos voltam.
+- **Não se troca a posição** dos personagens durante a batalha, exceto avançar para o lugar vago de um companheiro caído da frente (consome o turno de quem avança).
+- **De 1 a 4 inimigos** à frente da equipe, agrupados em pares. Os da segunda fileira só atacam com arma de longo alcance, e um deles pode avançar quando um da frente cai.
+- **Sem escolha de alvo:** a arma ataca o primeiro inimigo exatamente à frente (sem inimigo na coluna, o mais próximo); armas de longo alcance de quem está atrás atacam ao acaso; lanças empunhadas atacam a primeira fileira inimiga.
+- **Magias contra inimigos:** alvo ao acaso. **Curas e melhorias:** o jogador clica na foto do aliado.
+- **Ataques dos inimigos:** quem está à frente do inimigo, no início da fileira; se cair, o próximo da mesma fileira.
 - **Fuga** andando para trás ou para os lados; girar não é fuga.
 
 ### Pontos em aberto (decidir antes de programar)
 
 1. **Versão do SRD:** 5.1 (2014, "raças") ou 5.2.1 (2024, "espécies"). Proposta: 5.1.
 2. **Nível inicial:** 1 (simples, mas as classes de combate têm poucas opções) ou 3.
-3. **Ordem dos turnos:** iniciativa do SRD, com equipe e inimigos misturados (proposta), ou a equipe inteira primeiro, na ordem da formação, e depois os inimigos?
+3. **Ordem dos turnos:** iniciativa do SRD, com equipe e inimigos misturados (proposta), ou a equipe inteira primeiro, na ordem da formação, e depois os inimigos? Quando o contador volta (o inimigo avançou ou a equipe voltou a avançar), a ordem recomeça do início ou continua de onde parou?
 4. **Pausa do tempo:** pausar com a aba oculta e com menu aberto (proposta)?
-5. **Coluna sem inimigo:** se não há inimigo exatamente à frente (o grupo é menor ou ele já caiu), o ataque acerta o inimigo mais próximo de outra coluna (proposta) ou se perde?
-6. **Detalhes de alcance:** a lança empunhada de quem está atrás escolhe o alvo ao acaso entre os da primeira fileira, ou usa a sua coluna? Armas de longo alcance de quem está na frente atacam o inimigo à frente ou ao acaso? Armas corpo a corpo comuns nas mãos de quem está atrás têm algum efeito (proposta: nenhum)?
-7. **Magias e preces:** sem escolha de alvo, quem é atingido? (o primeiro à frente, um inimigo ao acaso, todos; e, no caso de cura, quem é curado?)
-8. **Ataques dos inimigos:** quem recebe o dano (frente primeiro, coluna, ao acaso)? E o dano recebido por quem gira ou foge?
-9. **Movimento durante a batalha:** andar para trás ou para os lados é um movimento livre ou consome o turno do personagem da vez? A batalha termina ao sair da casa adjacente? Os inimigos perseguem?
-10. **Chaves, Mapa Encantado e moedas:** pertencem à equipe (proposta: uma "bolsa da equipe", fora dos slots de cada personagem) ou a um personagem? Hoje eles ficam no inventário único, e a pilha de moedas ocupa o slot 1.
-11. **Armas de duas mãos** ocupam as duas mãos?
-12. **Fadiga:** regra de gasto (por ação?) e de recuperação (por turno, por descanso, com poções).
-13. **Arte:** rostos dos 6 personagens (proposta: pixel art 64×64, no mesmo estilo das texturas) e ícones de itens e de mãos. Quem produz?
-14. **Persistência:** salvar e carregar a equipe e o progresso (local, e depois com web3).
-15. **Vida zero e derrota:** o que acontece com um personagem derrotado (inconsciente, morto, reanimável)? E se a equipe inteira cair?
+5. **Detalhes de alcance:** a lança empunhada de quem está atrás escolhe o alvo ao acaso entre os da primeira fileira, ou usa a sua coluna? Armas de longo alcance de quem está na frente atacam o inimigo à frente ou ao acaso? Armas corpo a corpo comuns nas mãos de quem está atrás têm algum efeito (proposta: nenhum)?
+6. **Magias em aliados:** como é o clique? (proposta: clicar no scroll ou na magia e, em seguida, na foto do aliado, tudo dentro dos 10 segundos). Um aliado derrotado pode receber cura?
+7. **Calibrar o ritmo dos inimigos** com monstros reais: rodadas de 8 s e carência de 3 s fora do contador, perseguição de 1 casa a cada 4 s, e se o avanço de um inimigo consome o turno dele (proposta: sim, no lugar do ataque).
+8. **Chaves, Mapa Encantado e moedas:** pertencem à equipe (proposta: uma "bolsa da equipe", fora dos slots de cada personagem) ou a um personagem? Hoje eles ficam no inventário único, e a pilha de moedas ocupa o slot 1.
+9. **Armas de duas mãos** ocupam as duas mãos?
+10. **Fadiga:** regra de gasto (por ação?) e de recuperação (por turno, por descanso, com poções).
+11. **Arte:** rostos dos 6 personagens (proposta: pixel art 64×64, no mesmo estilo das texturas) e ícones de itens e de mãos. Quem produz?
+12. **Persistência:** salvar e carregar a equipe e o progresso (local, e depois com web3).
+13. **Vida zero e derrota:** o que acontece com um personagem derrotado (inconsciente, morto, reanimável)? E se a equipe inteira cair?
 
 ### Arquitetura prevista (arquivos novos)
 
@@ -282,7 +303,7 @@ js/party/
 js/combat/
   turn-manager.js         Iniciativa, fila de turnos, temporizador de 10 s por ação, turno perdido, pausas
   enemy-group.js          Formação dos inimigos (1 a 4, em pares) e regra de alvo (à frente, alcance, lanças)
-  combat-actions.js       Ações de uma mão: atacar, conjurar, beber, passar (depende dos pontos 5 a 9)
+  combat-actions.js       Ações de uma mão: atacar, conjurar, beber, passar (depende dos pontos 5 a 7)
 assets/portraits/         Rostos dos personagens (PNG, pixel art)
 ```
 
