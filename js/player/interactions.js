@@ -84,6 +84,9 @@ function checkKeyPickupAt(x, y) {
 function activateWallButton(btn, door) {
   if (!door) return;
 
+  // Toca o clique mecânico com eco sempre que interagir com a parede
+  if (typeof playLever === 'function') playLever();
+
   if (btn.isSpecial || door.type === TILE_SPECIAL_DOOR) {
     const hasIron = player.keys.iron || player.keysUsed.iron;
     const hasGold = player.keys.gold || player.keysUsed.gold;
@@ -96,6 +99,9 @@ function activateWallButton(btn, door) {
     }
 
     door.open = true;
+    // Toca som de pedra/ferro pesado ao abrir a saída
+    if (typeof playDoorSound === 'function') playDoorSound('iron'); 
+    
     closeEnchantedMapView(true);
     let transitionDelay = 320;
     if (player.hasEnchantedMap && playerInventoryItems.some(item => item.type === 'map')) {
@@ -132,6 +138,8 @@ function activateWallButton(btn, door) {
     door.unlocked = true;
     if (!door.open) {
       door.open = true;
+      // Toca o som do material da porta remota abrindo à distância
+      if (typeof playDoorSound === 'function') playDoorSound(door.visualStyle);
       showToast(
         'Você acionou a alavanca remota no beco e ouviu uma porta se destravar e abrir ao longe!',
         'success'
@@ -149,6 +157,9 @@ function activateWallButton(btn, door) {
   const wasLockedWithKey = Boolean(door.lockType && !door.unlocked);
   door.unlocked = true;
   door.open = !door.open;
+
+  // Toca o ranger da porta ou deslizar da pedra secreta ao lado do jogador
+  if (typeof playDoorSound === 'function') playDoorSound(door.visualStyle);
 
   if (wasLockedWithKey) {
     // Assim que o jogador usa a chave para abrir sua respectiva porta, a chave desaparece do inventário
