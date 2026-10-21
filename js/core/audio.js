@@ -47,7 +47,7 @@ function playFootstep() {
   
   // CLONA o áudio para evitar latência e permitir sobreposição de sons
   const soundClone = stepSound.cloneNode(true);
-  soundClone.volume = 0.8;
+  soundClone.volume = 0.4;
   
   // Toca o clone instantaneamente
   soundClone.play().catch(e => {});
