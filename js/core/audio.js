@@ -7,15 +7,15 @@ const AUDIO_FILES = {
   // Trilha misteriosa e Vento gélido em loop
   bgm: new Audio('assets/audio/bgm/Crypt_of_Quiet_Ages.mp3'),
   
-  // O símbolo '#' foi substituído por '%23' para o navegador conseguir ler a URL
-  wind: new Audio('assets/audio/sfx/Continuous_seamless__%231.mp3'),
+  // Nome do arquivo limpo, sem caracteres especiais
+  wind: new Audio('assets/audio/sfx/vento_1.mp3'),
   
   // Array com as 4 variações de passos para sorteio
   steps: [
-    new Audio('assets/audio/sfx/Heavy_leather_boots__%231.mp3'),
-    new Audio('assets/audio/sfx/Heavy_leather_boots__%232.mp3'),
-    new Audio('assets/audio/sfx/Heavy_leather_boots__%233.mp3'),
-    new Audio('assets/audio/sfx/Heavy_leather_boots__%234.mp3')
+    new Audio('assets/audio/sfx/passo_1.mp3'),
+    new Audio('assets/audio/sfx/passo_2.mp3'),
+    new Audio('assets/audio/sfx/passo_3.mp3'),
+    new Audio('assets/audio/sfx/passo_4.mp3')
   ]
 };
 
