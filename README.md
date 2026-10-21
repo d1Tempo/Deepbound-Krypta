@@ -21,15 +21,18 @@ e abra <http://localhost:8000>.
 ```
 index.html          Página (estrutura HTML e a lista de scripts, em ordem de carregamento)
 css/style.css       Todo o visual da interface
-assets/             Texturas PNG e Áudios (pastas audio/bgm e audio/sfx)
+assets/             Texturas PNG (walls, floors, ceilings, doors, buttons, keys, objects)
 docs/               Documento de design
+tests/              Testes automáticos (node tests/party.test.js)
 js/
-  core/             Constantes, temas, variáveis globais, áudio (audio.js) e utilidades
+  core/             Constantes, temas e variáveis globais do mapa; utilidades
   dungeon/          Geração procedural, portas/botões, variações de textura
   world/            Consultas do mapa (colisão, visão) e Fog of War
   player/           Estado, ficha do personagem, movimento, interações, teclado
   render/           Tudo que desenha no canvas (3D, piso/teto, paredes, portas, minimapa)
   ui/               HUD em HTML, bússola, avisos, modos de interface
+  items/            Itens e equipamento (catálogo do SRD e regras de slots e armadura)
+  party/            Equipe de personagens (regras do SRD, formato, personagens fixos, provedores)
   game.js           Carregar mapa, reiniciar, atalhos de desenvolvedor
   main.js           Ponto de entrada (sempre o ÚLTIMO script)
 ```
@@ -47,23 +50,11 @@ Comece cada conversa colando este README e descrevendo o que quer fazer.
 | Gastar/trocar moedas e pontuação          | `player/state.js`, `player/interactions.js`, `ui/hud.js`, `index.html` (veja a seção "Dobrões de ouro")                                                                            |
 | Novos objetos coletáveis                  | `core/config.js`, `dungeon/generator.js`, `render/objects.js`, `render/first-person.js`, `render/hitboxes.js`, `render/textures.js`, `player/interactions.js`, `ui/hud.js`         |
 | Novos temas (Castelo, Caverna, Fosso)     | `core/config.js`, `dungeon/variants.js`, `render/textures.js`, `render/walls.js`, `render/floor-ceiling.js`                                                                        |
-| Adicionar/Modificar Áudio e SFX           | `core/audio.js`, `player/interactions.js`, `player/movement.js`                                                                                                                    |
 | Equipe de personagens e HUD 2×2           | `js/party/*` (arquivos novos, veja a seção "Equipe de personagens"), `index.html`, `css/style.css`, `ui/hud.js`, `player/state.js`, `player/character.js` (será substituído)                      |
 | Itens e monstros (JSON do SRD)            | `player/character.js`, `ui/hud.js` (os JSON novos eu crio do zero)                                                                                                                 |
 | Combate e monstros no 3D                  | `player/character.js`, `player/movement.js`, `world/queries.js`, `render/first-person.js`, `render/objects.js`                                                                     |
 | Mudar a aparência da interface            | `index.html`, `css/style.css`, `ui/hud.js`                                                                                                                                         |
 | Mudar como a masmorra é gerada            | `dungeon/generator.js` (43 KB; peça ajuda indicando a parte que quer mudar)                                                                                                        |
-
-## Áudio e Efeitos Sonoros
-
-O jogo utiliza um sistema de áudio em JavaScript puro, projetado para ser leve e não causar bloqueios no carregamento do navegador (`js/core/audio.js`).
-
-- **Estrutura de Arquivos:** 
-  - `assets/audio/bgm/`: Trilhas sonoras contínuas.
-  - `assets/audio/sfx/`: Sons de ambiente em loop (vento) e efeitos sonoros curtos (passos, alavancas, portas). Todos os nomes de arquivos devem ser curtos, em letras minúsculas e **sem caracteres especiais** (`#`, `%`, etc.).
-- **Loops Perfeitos (Web Audio API):** Para evitar o "estalo" natural que os navegadores geram ao reiniciar arquivos MP3, sons contínuos como o vento gélido são carregados, decodificados e processados nativamente na memória através da Web Audio API (`AudioContext`).
-- **Prevenção de Latência (Clonagem):** Efeitos de repetição rápida, como os passos da equipe ou cliques de alavancas, são clonados dinamicamente na memória a cada execução (`cloneNode`). Isso permite que os sons se sobreponham de forma fluida sem engasgar o arquivo original.
-- **Autoplay:** Para respeitar as políticas dos navegadores, a inicialização da paisagem sonora (BGM e Vento) só é disparada após a primeira interação do jogador com o jogo (o primeiro movimento ou giro).
 
 ## Dobrões de ouro (moedas)
 
@@ -179,7 +170,18 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 
    **Ficam de fora (primeira versão):** Adestrar Animais, Atuação, Enganação, Intimidação, Intuição, Persuasão, História, Natureza e Sobrevivência.
 
-   **Na ficha aparecem:** os 6 atributos com modificadores; Classe de Armadura; Vida e Fadiga; nível e bônus de proficiência; testes de resistência; as habilidades da tabela acima; magias e preces (quando houver); traços de classe e raça; e **estatísticas de jogo** (inimigos derrotados, dano causado, armadilhas desarmadas, portas secretas descobertas, portas abertas…).
+   **Na ficha aparecem:** os 6 atributos com modificadores; Classe de Armadura; Vida e Fadiga; nível e bônus de proficiência; testes de resistência; as habilidades da tabela acima; as proficiências com armas e armaduras; a silhueta de equipamento (diretriz 11); magias e preces (quando houver); traços de classe e raça; e **estatísticas de jogo** (inimigos derrotados, dano causado, armadilhas desarmadas, portas secretas descobertas, portas abertas…).
+
+   **Proficiências com armas e armaduras (não são "habilidades" com nível).** O SRD não tem nível de habilidade por arma. Cada personagem apenas **tem ou não tem proficiência**: por categoria (armas simples, armas marciais; armaduras leves, médias, pesadas; escudos) e em armas específicas (a raça e a classe acrescentam algumas). Ter proficiência soma o bônus de proficiência ao ataque; não ter, não soma. Armadura sem proficiência impõe penalidades (as do SRD). A ficha mostra essas listas. "Luta com espada longa", "luta com faca", "defesa com escudo" e "luta com bastão" são, respectivamente, proficiência em espada longa, em adaga, em escudos e em bordão. Como os personagens não sobem de nível, esses valores não evoluem.
+
+   | Personagem          | Armaduras                                           | Armas                                                                                                        |
+   | ------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+   | Durgan (Guerreiro)  | todas, e escudos                                    | simples e marciais                                                                                           |
+   | Helga (Clériga)     | leves e médias, e escudos (pesadas pelo domínio da Vida) | simples, e machado de batalha, machadinha, martelo leve e martelo de guerra (traço de anão)             |
+   | Sylvar (Ladino)     | leves                                               | simples, besta de mão, espada longa, rapieira, espada curta, e arco curto e arco longo (traço de elfo)      |
+   | Aelindra (Maga)     | nenhuma                                             | adaga, dardo, funda, bordão, besta leve, e espada longa, espada curta, arco curto e arco longo (traço de elfo) |
+   | Cassian (Paladino)  | todas, e escudos                                    | simples e marciais                                                                                           |
+   | Elara (Patrulheira) | leves e médias, e escudos                           | simples e marciais                                                                                           |
 
    **Fadiga** não existe no SRD: é uma regra própria do jogo (proposta: Fadiga máxima = valor de Constituição; gasta em ataques e magias; recupera com o tempo e com poções). Regra a fechar junto com o combate.
 
@@ -188,13 +190,14 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 8. **Pronto para NFTs (web3), em etapa futura.** O código novo deve nascer preparado para carregar personagens de uma fonte externa. Princípios:
 
    - **Dados puros, sem tela.** O personagem é um objeto de dados; a interface só lê. Nada de regra escondida em código de desenho.
-   - **Identidade imutável × progresso mutável.** A identidade (nome, raça, gênero, classe, atributos base, retrato) é o que viria do NFT. Nível, pontos de experiência, Vida e Fadiga atuais, inventário, mãos e estatísticas pertencem ao **progresso do jogo** e ficam separados.
+   - **Identidade imutável × progresso mutável.** A identidade (nome, raça, gênero, classe, atributos base, retrato) é o que viria do NFT. O **nível** também faz parte da identidade (os personagens não ganham experiência). Vida e Fadiga atuais, inventário, equipamento, mãos e estatísticas pertencem ao **progresso do jogo** e ficam separados.
    - **Tudo o que é derivado é recalculado** pelas regras locais (modificadores, Vida máxima, Classe de Armadura, bônus de habilidades). Valores derivados vindos de metadados externos nunca são aceitos.
    - **Metadados externos são entrada não confiável.** Validar o formato ao carregar (limites dos atributos, listas permitidas de raça e classe, tamanho e endereço do retrato) e **nunca inserir texto externo como HTML** (usar `textContent`, e não `innerHTML`).
    - **Carregamento por "provedor" assíncrono.** Hoje: `PresetProvider` (os 6 personagens fixos). No futuro: `NftProvider` (lê o token, busca os metadados e monta o mesmo objeto). A interface mostra um estado de "carregando" e trata falhas.
    - **Retrato por endereço** (URI), com imagem de reserva, para aceitar `https://` e `ipfs://` no futuro.
+   - **Itens também poderão ser NFTs** (espadas, escudos, peças de armadura). Valem os mesmos princípios: o NFT aponta para um **modelo de item** do jogo (por exemplo, `longsword`) e para modificadores dentro de limites definidos; números de estatística vindos de metadados externos **nunca** são aceitos sem validação contra o modelo. A fonte é um `ItemProvider` (itens predefinidos agora, NFT no futuro).
 
-   Formato previsto (versão 1; pontuações base **antes** dos bônus de raça):
+   Formato previsto (versão 1; pontuações base **antes** dos bônus de raça; as proficiências com armas e armaduras são **derivadas** da classe e da raça e por isso não são guardadas):
 
    ```json
    {
@@ -203,7 +206,7 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
      "source": { "type": "preset", "chainId": null, "contract": null, "tokenId": null, "metadataUri": null },
      "identity": {
        "name": "Durgan Pedraforte",
-       "race": "dwarf", "subrace": "hill", "gender": "male", "class": "fighter",
+       "race": "dwarf", "subrace": "hill", "gender": "male", "class": "fighter", "level": 1,
        "portrait": "assets/portraits/durgan.png"
      },
      "base": {
@@ -211,15 +214,16 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
        "skillProficiencies": ["athletics", "perception"]
      },
      "progress": {
-       "level": 1, "xp": 0, "hp": 13, "fp": 15,
+       "hp": 13, "fp": 15,
        "hands": { "right": null, "left": null },
+       "equipment": { "head": null, "neck": null, "torso": null, "arms": null, "hands": null, "legs": null, "feet": null, "ringLeft": null, "ringRight": null },
        "inventory": [],
        "stats": { "kills": 0, "damageDealt": 0, "trapsDisarmed": 0, "secretDoorsFound": 0, "doorsOpened": 0 }
      }
    }
    ```
 
-9. **Elenco inicial: 6 personagens fixos, o jogador escolhe 4.** Classes: guerreiro, ladino, mago, clérigo, paladino e patrulheiro. Raças: humano, anão e elfo (com as sub-raças do SRD 5.1: anão da colina e elfo alto). Os dois gêneros. A combinação abaixo é a **proposta** inicial (nomes provisórios), com 2 de cada raça e 3 de cada gênero, usando personagens de nível 1 e os valores-padrão (15, 14, 13, 12, 10, 8) distribuídos conforme a classe:
+9. **Elenco inicial: 6 personagens fixos, o jogador escolhe 4.** Classes: guerreiro, ladino, mago, clérigo, paladino e patrulheiro. Raças: humano, anão e elfo (com as sub-raças do SRD 5.1: anão da colina e elfo alto). Os dois gêneros. A combinação abaixo é a **proposta** inicial (nomes provisórios), com 2 de cada raça e 3 de cada gênero, todos de **nível 1 e sem possibilidade de aprimoramento** (não existem pontos de experiência), com os valores-padrão (15, 14, 13, 12, 10, 8) distribuídos conforme a classe:
 
    | Personagem          | Classe       | Raça (sub-raça)    | Gênero    | FOR | DES | CON | INT | SAB | CAR | Vida | Fadiga | CA  |
    | ------------------- | ------------ | ------------------ | --------- | --- | --- | --- | --- | --- | --- | ---- | ------ | --- |
@@ -232,7 +236,7 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 
    Os valores já incluem os bônus de raça do SRD 5.1 (humano +1 em tudo; anão +2 CON e, o da colina, +1 SAB; elfo +2 DES e, o alto, +1 INT). A Vida do anão da colina inclui +1 pelo traço "Robustez Anã". A Classe de Armadura considera a armadura inicial típica da classe (guerreiro com cota de malha e arma de duas mãos; paladino com cota de malha e escudo; clériga com brunea e escudo; patrulheira com couro batido; ladino com couro; maga sem armadura).
 
-   Habilidades iniciais propostas: guerreiro (Atletismo, Percepção), clériga (Medicina, Religião), ladino (Furtividade, Investigação, Prestidigitação, Acrobacia, mais Percepção do elfo e especialização em Ferramentas de ladrão), maga (Arcanismo, Investigação, mais Percepção do elfo), paladino (Atletismo, Religião), patrulheira (Percepção, Furtividade, Investigação).
+   Habilidades iniciais propostas: guerreiro (Atletismo, Percepção), clériga (Medicina, Religião), ladino (Furtividade, Investigação, Prestidigitação, Acrobacia, mais Percepção do elfo e especialização em Ferramentas de ladrão e Percepção), maga (Arcanismo, Investigação, mais Percepção do elfo), paladino (Atletismo, Religião), patrulheira (Percepção, Furtividade, Investigação).
 
 10. **Combate por turnos, com tempo limite para cada ação.** Durante as batalhas o jogo é **por turnos**, e cada personagem tem **10 segundos** (constante `COMBAT_TURN_SECONDS`, ajustável) para executar a sua ação. Se o jogador não agir com aquele personagem nesse tempo, o personagem **perde o turno** e a vez passa ao próximo.
 
@@ -272,6 +276,17 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 
     **Fuga.** A equipe foge andando **para trás ou para os lados**, até colocar uma casa vazia entre ela e os inimigos. **Apenas girar** não é fuga: a equipe deixa de atacar e continua sofrendo dano se estiver em casa adjacente.
 
+11. **Equipamento e silhueta.** O jogador encontrará nas masmorras peças como botas, elmos, braceletes, peitorais, espadas e escudos. Cada personagem tem uma **silhueta de pessoa** com **slots nas partes do corpo** onde as peças se encaixam.
+
+    - **Slots do corpo (proposta inicial):** cabeça (elmo), pescoço (amuleto), tronco (armadura, peitoral), braços (braceletes), mãos (luvas), pernas (grevas), pés (botas) e dois dedos (anéis). Costas (capa) e cintura (cinto) ficam para uma segunda versão. As **duas mãos** que seguram armas, escudos, scrolls e poções são as mesmas do slot do personagem e aparecem também na silhueta.
+    - **Onde aparece (proposta):** na ficha do personagem (duplo clique) e, em versão compacta, ao lado do inventário do personagem selecionado.
+    - **Como se equipa:** arrastar a peça do inventário até o slot compatível (os slots compatíveis se destacam) ou duplo clique na peça para equipar no slot dela.
+    - **Classe de Armadura:** o SRD não tem armadura por peças (só uma armadura de corpo e um escudo). Proposta: o **tronco** define a base pela tabela de armaduras do SRD (leve, média, pesada, com os limites de Destreza), o **escudo** soma +2, e as **peças complementares** (elmo, braceletes, luvas, grevas, botas) somam +1 apenas se forem reforçadas ou mágicas, com um teto de Classe de Armadura para preservar o equilíbrio. Valores a calibrar.
+    - **Proficiência:** usar armadura ou escudo sem proficiência impõe as penalidades do SRD.
+    - **Itens** são dados puros, com modelo, espaço onde se encaixam e modificadores, e podem vir de um `ItemProvider` (predefinidos agora; NFTs no futuro).
+
+12. **Heróis encontrados na masmorra.** Os personagens básicos são de nível 1 e **nunca sobem de nível**. O progresso do jogador vem de **encontrar na masmorra heróis melhores** do que os da sua equipe e **trocá-los** por membros atuais, além de encontrar equipamento. Quando o web3 chegar, os heróis de nível mais alto serão **NFTs**. Por isso o **nível** é um dado do personagem (imutável) e as regras precisam calcular heróis acima do nível 1 (bônus de proficiência, Vida, magias e traços de classe por nível).
+
 ### Decisões já tomadas
 
 - Combate **por turnos**, com **10 segundos** por ação e perda do turno se o tempo acabar.
@@ -284,34 +299,59 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 - **Magias contra inimigos:** alvo ao acaso. **Curas e melhorias:** o jogador clica na foto do aliado.
 - **Ataques dos inimigos:** quem está à frente do inimigo, no início da fileira; se cair, o próximo da mesma fileira.
 - **Fuga** andando para trás ou para os lados; girar não é fuga.
+- Os 6 personagens básicos são de **nível 1 e não evoluem**; o jogador encontra **heróis melhores** nas masmorras e os troca pelos da equipe. Heróis de nível alto serão NFTs no futuro.
+- **Itens** (espadas, escudos, peças de armadura) também poderão ser NFTs no futuro.
+- **Níveis suportados: de 1 a 5** (heróis encontrados e NFTs). O motor calcula por nível e rejeita o que estiver fora da faixa.
+- **Proficiências** com armas e armaduras são "tem ou não tem" (regra do SRD), e não habilidades com nível.
+- Cada personagem tem uma **silhueta de equipamento** com slots nas partes do corpo.
 
 ### Pontos em aberto (decidir antes de programar)
 
 1. **Versão do SRD:** 5.1 (2014, "raças") ou 5.2.1 (2024, "espécies"). Proposta: 5.1.
-2. **Nível inicial:** 1 (simples, mas as classes de combate têm poucas opções) ou 3.
-3. **Ordem dos turnos:** iniciativa do SRD, com equipe e inimigos misturados (proposta), ou a equipe inteira primeiro, na ordem da formação, e depois os inimigos? Quando o contador volta (o inimigo avançou ou a equipe voltou a avançar), a ordem recomeça do início ou continua de onde parou?
-4. **Pausa do tempo:** pausar com a aba oculta e com menu aberto (proposta)?
-5. **Detalhes de alcance:** a lança empunhada de quem está atrás escolhe o alvo ao acaso entre os da primeira fileira, ou usa a sua coluna? Armas de longo alcance de quem está na frente atacam o inimigo à frente ou ao acaso? Armas corpo a corpo comuns nas mãos de quem está atrás têm algum efeito (proposta: nenhum)?
-6. **Magias em aliados:** como é o clique? (proposta: clicar no scroll ou na magia e, em seguida, na foto do aliado, tudo dentro dos 10 segundos). Um aliado derrotado pode receber cura?
-7. **Calibrar o ritmo dos inimigos** com monstros reais: rodadas de 8 s e carência de 3 s fora do contador, perseguição de 1 casa a cada 4 s, e se o avanço de um inimigo consome o turno dele (proposta: sim, no lugar do ataque).
-8. **Chaves, Mapa Encantado e moedas:** pertencem à equipe (proposta: uma "bolsa da equipe", fora dos slots de cada personagem) ou a um personagem? Hoje eles ficam no inventário único, e a pilha de moedas ocupa o slot 1.
-9. **Armas de duas mãos** ocupam as duas mãos?
-10. **Fadiga:** regra de gasto (por ação?) e de recuperação (por turno, por descanso, com poções).
-11. **Arte:** rostos dos 6 personagens (proposta: pixel art 64×64, no mesmo estilo das texturas) e ícones de itens e de mãos. Quem produz?
-12. **Persistência:** salvar e carregar a equipe e o progresso (local, e depois com web3).
-13. **Vida zero e derrota:** o que acontece com um personagem derrotado (inconsciente, morto, reanimável)? E se a equipe inteira cair?
+2. **Heróis encontrados:** como aparecem (sala, herói preso, evento)? Custam moedas? Que nível aparece em cada mapa? O herói substituído é descartado ou fica guardado? O herói encontrado vem com equipamento?
+3. **Slots e Classe de Armadura:** lista final de slots do corpo, regra de bônus das peças complementares e teto de Classe de Armadura; onde a silhueta aparece.
+4. **Itens:** categorias, raridade e tabela de itens encontrados em cada mapa; quais armas têm duas mãos, alcance ou arremesso.
+5. **Ordem dos turnos:** iniciativa do SRD, com equipe e inimigos misturados (proposta), ou a equipe inteira primeiro, na ordem da formação, e depois os inimigos? Quando o contador volta (o inimigo avançou ou a equipe voltou a avançar), a ordem recomeça do início ou continua de onde parou?
+6. **Pausa do tempo:** pausar com a aba oculta e com menu aberto (proposta)?
+7. **Detalhes de alcance:** a lança empunhada de quem está atrás escolhe o alvo ao acaso entre os da primeira fileira, ou usa a sua coluna? Armas de longo alcance de quem está na frente atacam o inimigo à frente ou ao acaso? Armas corpo a corpo comuns nas mãos de quem está atrás têm algum efeito (proposta: nenhum)?
+8. **Magias em aliados:** como é o clique? (proposta: clicar no scroll ou na magia e, em seguida, na foto do aliado, tudo dentro dos 10 segundos). Um aliado derrotado pode receber cura?
+9. **Calibrar o ritmo dos inimigos** com monstros reais: rodadas de 8 s e carência de 3 s fora do contador, perseguição de 1 casa a cada 4 s, e se o avanço de um inimigo consome o turno dele (proposta: sim, no lugar do ataque).
+10. **Chaves, Mapa Encantado e moedas:** pertencem à equipe (proposta: uma "bolsa da equipe", fora dos slots de cada personagem) ou a um personagem? Hoje eles ficam no inventário único, e a pilha de moedas ocupa o slot 1.
+11. **Armas de duas mãos** ocupam as duas mãos?
+12. **Fadiga:** regra de gasto (por ação?) e de recuperação (por turno, por descanso, com poções).
+13. **Arte:** rostos dos 6 personagens (proposta: pixel art 64×64, no mesmo estilo das texturas), ícones de itens e de mãos, e a silhueta. Quem produz?
+14. **Persistência:** salvar e carregar a equipe e o progresso (local, e depois com web3).
+15. **Vida zero e derrota:** o que acontece com um personagem derrotado (inconsciente, morto, reanimável)? E se a equipe inteira cair?
+16. **Revisão jurídica** antes de qualquer venda de NFTs (veja "Licenças e créditos").
+
+### Como testar a camada de dados
+
+Testes automáticos (Node, dentro da pasta do projeto): `node tests/party.test.js`. Eles conferem os 6 personagens com a tabela acima, as regras por nível (1 a 5), a validação (nomes com HTML, retratos perigosos, níveis fora da faixa, itens desconhecidos, NFTs malformados) e milhares de personagens aleatórios.
+
+No Console do navegador (F12), com a página do jogo aberta, depois de registrar os scripts no `index.html`:
+
+```js
+CharacterProviders.preset.loadAll().then(cs => console.table(cs.map(c => ({ nome: c.character.identity.name, classe: c.derived.className, Vida: c.derived.maxHp, Fadiga: c.derived.maxFp, CA: c.derived.armorClass }))))
+```
 
 ### Arquitetura prevista (arquivos novos)
 
 ```
 js/party/
-  character-schema.js     Formato dos dados e validação (rejeita metadados inválidos)
-  character-rules.js      Regras do SRD: modificadores, Vida máxima, Classe de Armadura, bônus de habilidades
-  character-presets.js    Os 6 personagens fixos (dados puros)
-  character-provider.js   PresetProvider (agora) e NftProvider (futuro), carregamento assíncrono
+  character-schema.js     Formato dos dados e validação (rejeita metadados inválidos)                   [pronto]
+  character-rules.js      Regras do SRD (níveis 1 a 5): modificadores, Vida, Classe de Armadura, habilidades [pronto]
+  character-presets.js    Os 6 personagens fixos (dados puros)                                          [pronto]
+  character-provider.js   PresetProvider (pronto) e NftProvider (futuro), carregamento assíncrono
   party-state.js          A equipe: 4 posições, personagem selecionado, janela aberta (equipe ou ficha)
   party-hud.js            Desenho dos 4 slots, seleção, arrastar para trocar, duplo clique
-  character-sheet.js      Janela de atributos, habilidades e estatísticas
+  character-sheet.js      Janela de atributos, habilidades, proficiências e estatísticas
+  equipment-view.js       Silhueta de equipamento: slots do corpo, arrastar peças, destaque dos slots compatíveis
+  hero-encounter.js       Heróis encontrados na masmorra e troca de membro da equipe (etapa futura)
+js/items/
+  item-catalog.js         Itens-base do SRD (armas, armaduras, escudo, poção de cura), por id            [pronto]
+  equipment-rules.js      Slots, Classe de Armadura por peças, proficiência de armas e armaduras         [pronto]
+  item-schema.js          Formato dos itens e validação (modelo, espaço, modificadores)                  [futuro, itens NFT]
+  item-provider.js        ItemProvider (predefinidos) e NftItemProvider                                  [futuro]
 js/combat/
   turn-manager.js         Iniciativa, fila de turnos, temporizador de 10 s por ação, turno perdido, pausas
   enemy-group.js          Formação dos inimigos (1 a 4, em pares) e regra de alvo (à frente, alcance, lanças)
@@ -324,14 +364,16 @@ As regras (`character-rules.js`) e o formato (`character-schema.js`) são funç�
 ### Ordem de implementação
 
 1. **Diretrizes** (esta seção) e decisão dos pontos em aberto.
-2. **Camada de dados:** formato, regras do SRD, os 6 personagens e o `PresetProvider`, com testes automáticos.
+2. **Camada de dados:** formato dos personagens e dos itens, regras do SRD (por nível, dentro da faixa suportada), proficiências, os 6 personagens, os itens básicos e os provedores predefinidos, com testes automáticos. **Estado: personagens, regras (níveis 1 a 5), itens-base, equipamento e `PresetProvider` prontos e testados; faltam o formato e o provedor de itens NFT (etapa 11).**
 3. **HUD 2 × 2 estático:** os 4 slots (rosto, nome, barras, mãos), sem interação. Aqui a janela de personagem antiga sai de cena.
 4. **Seleção e inventário por personagem** (e a decisão sobre chaves, Mapa e moedas).
 5. **Arrastar para trocar de posição** e **duplo clique para abrir a ficha**.
-6. **Remoção do código antigo** (`player/character.js`, as funções de personagem em `ui/hud.js`, a janela antiga no `index.html` e o CSS correspondente).
-7. **Combate por turnos:** gerenciador de turnos (iniciativa, fila, temporizador, turno perdido e pausas), destaque do personagem ativo e contagem regressiva na HUD. Pode ser testado antes dos inimigos existirem, com combatentes de teste.
-8. **Ações das mãos** (atacar, conjurar, beber, passar), sobre o gerenciador de turnos.
-9. **NFTs:** `NftProvider` e carregamento a partir da carteira.
+6. **Silhueta de equipamento:** slots do corpo e arrastar peças para equipar.
+7. **Remoção do código antigo** (`player/character.js`, as funções de personagem em `ui/hud.js`, a janela antiga no `index.html` e o CSS correspondente).
+8. **Combate por turnos:** gerenciador de turnos (iniciativa, fila, temporizador, turno perdido e pausas), destaque do personagem ativo e contagem regressiva na HUD. Pode ser testado antes dos inimigos existirem, com combatentes de teste.
+9. **Ações das mãos** (atacar, conjurar, beber, passar), sobre o gerenciador de turnos.
+10. **Heróis encontrados** na masmorra e troca de membros da equipe.
+11. **NFTs:** `NftProvider` e `NftItemProvider`, e carregamento a partir da carteira.
 
 ## Git (guardar versões e poder desfazer)
 
@@ -358,7 +400,7 @@ Para ter backup online, crie um repositório no GitHub e siga as instruções qu
 Existe: geração procedural 36x36, portas, alavancas, portas secretas, chaves de ferro/ouro,
 Mapa Encantado, Fog of War com linha de visão, renderizador 3D com texturas, minimapa,
 bússola, inventário (20 slots), dobrões de ouro (sorteio por mapa, coleta por clique, pilha no
-inventário, limite de 99), ficha do personagem (raça, Vida, Fadiga, 6 habilidades), sistema de áudio (ambiente, passos, interações).
+inventário, limite de 99), ficha do personagem (raça, Vida, Fadiga, 6 habilidades).
 
 Em planejamento: equipe de 4 personagens com HUD 2 × 2, inventário por personagem, ficha e combate por turnos com tempo limite (veja "Equipe de personagens").
 
@@ -371,4 +413,8 @@ Este jogo usa regras do SRD 5.1 de Dungeons & Dragons. A licença exige a declar
 
 > This work includes material taken from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at https://creativecommons.org/licenses/by/4.0/legalcode.
 
-A licença permite dizer que o jogo é "compatível com a 5ª edição" ("5E compatible"). Não use o nome, o logotipo nem outros elementos de marca de Dungeons & Dragons, nem conteúdo que não esteja no SRD. Se o jogo vier a vender NFTs, vale conversar com um advogado sobre o uso comercial.
+A licença CC-BY-4.0 permite **uso comercial**, inclusive a venda de produtos, desde que a atribuição acima seja mantida, e é **irrevogável**: a Wizards declarou que não pode alterá-la nem retirá-la. Ela permite dizer que o jogo é "compatível com a 5ª edição" ("5E compatible"). Ela **não** cobre o nome, o logotipo nem outros elementos de marca de Dungeons & Dragons, nem conteúdo que não esteja no SRD (monstros, magias e itens fora dele, cenários e personagens nomeados).
+
+Sobre NFTs: o texto da licença que consultamos não exclui blockchain, e a Wizards a descreve como livre para qualquer uso. A licença, porém, só trata dos direitos sobre o conteúdo do SRD. Ficam fora dela as marcas, as regras que cada país aplica à venda de ativos digitais e a proteção ao consumidor. Por isso, **antes de qualquer venda de NFTs, consulte um advogado**.
+
+Para reduzir o risco, o jogo mantém **nomes, arte, cenários e personagens originais** (nada de elementos de marca de D&D), e as **regras do SRD ficam isoladas** em `character-rules.js` e `equipment-rules.js`, de modo que o sistema de regras possa ser trocado sem refazer o resto.
