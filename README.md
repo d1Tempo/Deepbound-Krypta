@@ -21,10 +21,10 @@ e abra <http://localhost:8000>.
 ```
 index.html          Página (estrutura HTML e a lista de scripts, em ordem de carregamento)
 css/style.css       Todo o visual da interface
-assets/             Texturas PNG (walls, floors, ceilings, doors, buttons, keys, objects)
+assets/             Texturas PNG e Áudios (pastas audio/bgm e audio/sfx)
 docs/               Documento de design
 js/
-  core/             Constantes, temas e variáveis globais do mapa; utilidades
+  core/             Constantes, temas, variáveis globais, áudio (audio.js) e utilidades
   dungeon/          Geração procedural, portas/botões, variações de textura
   world/            Consultas do mapa (colisão, visão) e Fog of War
   player/           Estado, ficha do personagem, movimento, interações, teclado
@@ -47,11 +47,23 @@ Comece cada conversa colando este README e descrevendo o que quer fazer.
 | Gastar/trocar moedas e pontuação          | `player/state.js`, `player/interactions.js`, `ui/hud.js`, `index.html` (veja a seção "Dobrões de ouro")                                                                            |
 | Novos objetos coletáveis                  | `core/config.js`, `dungeon/generator.js`, `render/objects.js`, `render/first-person.js`, `render/hitboxes.js`, `render/textures.js`, `player/interactions.js`, `ui/hud.js`         |
 | Novos temas (Castelo, Caverna, Fosso)     | `core/config.js`, `dungeon/variants.js`, `render/textures.js`, `render/walls.js`, `render/floor-ceiling.js`                                                                        |
+| Adicionar/Modificar Áudio e SFX           | `core/audio.js`, `player/interactions.js`, `player/movement.js`                                                                                                                    |
 | Equipe de personagens e HUD 2×2           | `js/party/*` (arquivos novos, veja a seção "Equipe de personagens"), `index.html`, `css/style.css`, `ui/hud.js`, `player/state.js`, `player/character.js` (será substituído)                      |
 | Itens e monstros (JSON do SRD)            | `player/character.js`, `ui/hud.js` (os JSON novos eu crio do zero)                                                                                                                 |
 | Combate e monstros no 3D                  | `player/character.js`, `player/movement.js`, `world/queries.js`, `render/first-person.js`, `render/objects.js`                                                                     |
 | Mudar a aparência da interface            | `index.html`, `css/style.css`, `ui/hud.js`                                                                                                                                         |
 | Mudar como a masmorra é gerada            | `dungeon/generator.js` (43 KB; peça ajuda indicando a parte que quer mudar)                                                                                                        |
+
+## Áudio e Efeitos Sonoros
+
+O jogo utiliza um sistema de áudio em JavaScript puro, projetado para ser leve e não causar bloqueios no carregamento do navegador (`js/core/audio.js`).
+
+- **Estrutura de Arquivos:** 
+  - `assets/audio/bgm/`: Trilhas sonoras contínuas.
+  - `assets/audio/sfx/`: Sons de ambiente em loop (vento) e efeitos sonoros curtos (passos, alavancas, portas). Todos os nomes de arquivos devem ser curtos, em letras minúsculas e **sem caracteres especiais** (`#`, `%`, etc.).
+- **Loops Perfeitos (Web Audio API):** Para evitar o "estalo" natural que os navegadores geram ao reiniciar arquivos MP3, sons contínuos como o vento gélido são carregados, decodificados e processados nativamente na memória através da Web Audio API (`AudioContext`).
+- **Prevenção de Latência (Clonagem):** Efeitos de repetição rápida, como os passos da equipe ou cliques de alavancas, são clonados dinamicamente na memória a cada execução (`cloneNode`). Isso permite que os sons se sobreponham de forma fluida sem engasgar o arquivo original.
+- **Autoplay:** Para respeitar as políticas dos navegadores, a inicialização da paisagem sonora (BGM e Vento) só é disparada após a primeira interação do jogador com o jogo (o primeiro movimento ou giro).
 
 ## Dobrões de ouro (moedas)
 
@@ -346,7 +358,7 @@ Para ter backup online, crie um repositório no GitHub e siga as instruções qu
 Existe: geração procedural 36x36, portas, alavancas, portas secretas, chaves de ferro/ouro,
 Mapa Encantado, Fog of War com linha de visão, renderizador 3D com texturas, minimapa,
 bússola, inventário (20 slots), dobrões de ouro (sorteio por mapa, coleta por clique, pilha no
-inventário, limite de 99), ficha do personagem (raça, Vida, Fadiga, 6 habilidades).
+inventário, limite de 99), ficha do personagem (raça, Vida, Fadiga, 6 habilidades), sistema de áudio (ambiente, passos, interações).
 
 Em planejamento: equipe de 4 personagens com HUD 2 × 2, inventário por personagem, ficha e combate por turnos com tempo limite (veja "Equipe de personagens").
 
