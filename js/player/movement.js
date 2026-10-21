@@ -71,6 +71,9 @@ function tryMoveTo(targetX, targetY) {
     player.y = targetY;
     player.steps++;
 
+    initAmbientAudio();
+    playFootstep();
+    
     if (isAnyDoorCell(prevX, prevY)) {
       const prevDoor = getDoor(prevX, prevY);
       if (prevDoor && prevDoor.isOneWay && prevDoor.open) {
