@@ -39,14 +39,21 @@ function initAmbientAudio() {
   isAudioInitialized = true;
 }
 
-// Função para tocar efeitos de passo
+// Função para tocar efeitos de passo instantaneamente
 function playFootstep() {
   // Sorteia um número de 0 a 3 para escolher um dos arquivos de passos
   const randomIndex = Math.floor(Math.random() * AUDIO_FILES.steps.length);
   const stepSound = AUDIO_FILES.steps[randomIndex];
   
-  // Zera o tempo do áudio para permitir que toquem rapidamente em sequência
-  stepSound.currentTime = 0;
-  stepSound.volume = 0.8;
-  stepSound.play().catch(e => {});
+  // CLONA o áudio para evitar latência e permitir sobreposição de sons
+  const soundClone = stepSound.cloneNode(true);
+  soundClone.volume = 0.8;
+  
+  // Toca o clone instantaneamente
+  soundClone.play().catch(e => {});
+  
+  // Limpa o clone da memória após terminar de tocar para não pesar o jogo
+  soundClone.onended = function() {
+    soundClone.remove();
+  };
 }
