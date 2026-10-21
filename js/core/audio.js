@@ -1,90 +1,94 @@
 /**
  * js/core/audio.js
- * Gerenciador de BGM (Trilha/Vento) e SFX (Passos)
+ * Gerenciador de BGM (Trilha/Vento) e SFX (Passos, Portas, Alavancas)
  */
 
-// Inicializa a Web Audio API (Padrão moderno para loops sem estalos)
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 const AUDIO_FILES = {
-  // Trilha misteriosa
   bgm: new Audio('assets/audio/bgm/Crypt_of_Quiet_Ages.mp3'),
   
-  // Array com as 4 variações de passos para sorteio
   steps: [
     new Audio('assets/audio/sfx/passo_1.mp3'),
     new Audio('assets/audio/sfx/passo_2.mp3'),
     new Audio('assets/audio/sfx/passo_3.mp3'),
     new Audio('assets/audio/sfx/passo_4.mp3')
+  ],
+  
+  levers: [
+    new Audio('assets/audio/sfx/mecha_1.mp3'),
+    new Audio('assets/audio/sfx/mecha_2.mp3'),
+    new Audio('assets/audio/sfx/mecha_3.mp3'),
+    new Audio('assets/audio/sfx/mecha_4.mp3')
+  ],
+
+  ironDoors: [
+    new Audio('assets/audio/sfx/iron_door_1.mp3'),
+    new Audio('assets/audio/sfx/iron_door_2.mp3'),
+    new Audio('assets/audio/sfx/iron_door_3.mp3')
+  ],
+
+  woodenDoors: [
+    new Audio('assets/audio/sfx/wooden_door_1.mp3'),
+    new Audio('assets/audio/sfx/wooden_door_2.mp3'),
+    new Audio('assets/audio/sfx/wooden_door_3.mp3'),
+    new Audio('assets/audio/sfx/wooden_door_4.mp3')
   ]
 };
 
-// Configurações de Loop e Volume da trilha via HTML5
 AUDIO_FILES.bgm.loop = true;
 AUDIO_FILES.bgm.volume = 0.2; 
 
 let isAudioInitialized = false;
 
-// Função que carrega o vento na Web Audio API para um loop perfeito
 async function playSeamlessWind() {
   try {
-    // Baixa o arquivo do vento
-    const response = await fetch('assets/audio/sfx/vento_1.ogg');
+    const response = await fetch('assets/audio/sfx/vento_1.ogg'); // Ou .mp3 se você manteve o MP3 com fade
     const arrayBuffer = await response.arrayBuffer();
-    // Decodifica o áudio puro na memória (remove o estalo do MP3)
     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-    // Cria a fonte de áudio
     const windSource = audioCtx.createBufferSource();
     windSource.buffer = audioBuffer;
-    windSource.loop = true; // Loop perfeito ativado
+    windSource.loop = true;
 
-    // Cria um nó de controle de volume
     const gainNode = audioCtx.createGain();
-    gainNode.gain.value = 0.3; // Volume do vento
+    gainNode.gain.value = 0.6; 
 
-    // Conecta a fonte ao volume, e o volume à saída de som do PC
     windSource.connect(gainNode);
     gainNode.connect(audioCtx.destination);
-
-    // Inicia a reprodução
     windSource.start();
   } catch (e) {
-    console.warn("Erro ao carregar o loop do vento via Web Audio API:", e);
+    console.warn("Erro ao carregar o vento:", e);
   }
 }
 
-// Função chamada no primeiro movimento/giro do jogador
 function initAmbientAudio() {
-  if (isAudioInitialized) return; // Garante que só dispare uma vez
-  
-  // O Safari exige que o AudioContext seja "acordado" por uma interação do usuário
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
-
-  // Inicia as faixas de ambiente
-  AUDIO_FILES.bgm.play().catch(e => console.warn("Aguardando interação para música"));
+  if (isAudioInitialized) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  AUDIO_FILES.bgm.play().catch(e => {});
   playSeamlessWind();
-  
   isAudioInitialized = true;
 }
 
-// Função para tocar efeitos de passo instantaneamente
-function playFootstep() {
-  // Sorteia um número de 0 a 3 para escolher um dos arquivos de passos
-  const randomIndex = Math.floor(Math.random() * AUDIO_FILES.steps.length);
-  const stepSound = AUDIO_FILES.steps[randomIndex];
-  
-  // CLONA o áudio para evitar latência e permitir sobreposição de sons
-  const soundClone = stepSound.cloneNode(true);
-  soundClone.volume = 0.8;
-  
-  // Toca o clone instantaneamente
+// Função genérica para clonar e tocar efeitos sonoros instantaneamente
+function playSfx(audioArray, volume = 0.8) {
+  const randomIndex = Math.floor(Math.random() * audioArray.length);
+  const sound = audioArray[randomIndex];
+  const soundClone = sound.cloneNode(true);
+  soundClone.volume = volume;
   soundClone.play().catch(e => {});
-  
-  // Limpa o clone da memória após terminar de tocar
-  soundClone.onended = function() {
-    soundClone.remove();
-  };
+  soundClone.onended = () => soundClone.remove();
+}
+
+function playFootstep() { playSfx(AUDIO_FILES.steps, 0.5); }
+
+function playLever() { playSfx(AUDIO_FILES.levers, 0.9); }
+
+function playDoorSound(visualStyle) {
+  // Portas secretas, portas da entrada e grades usam som de metal/pedra pesada
+  if (visualStyle === 'iron' || visualStyle === 'grate' || visualStyle === 'secret') {
+    playSfx(AUDIO_FILES.ironDoors, 0.8);
+  } else {
+    playSfx(AUDIO_FILES.woodenDoors, 0.8);
+  }
 }
