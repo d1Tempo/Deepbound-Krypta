@@ -19,10 +19,10 @@ const AUDIO_FILES = {
 
 // Configurações de Loop e Mixagem de Volume
 AUDIO_FILES.bgm.loop = true;
-AUDIO_FILES.bgm.volume = 0.6; // Trilha principal
+AUDIO_FILES.bgm.volume = 0.2; // Trilha principal
 
 AUDIO_FILES.wind.loop = true;
-AUDIO_FILES.wind.volume = 0.3; // Vento sutil ao fundo
+AUDIO_FILES.wind.volume = 0.6; // Vento sutil ao fundo
 
 let isAudioInitialized = false;
 
