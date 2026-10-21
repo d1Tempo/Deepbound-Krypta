@@ -41,7 +41,7 @@ async function playSeamlessWind() {
 
     // Cria um nó de controle de volume
     const gainNode = audioCtx.createGain();
-    gainNode.gain.value = 0.6; // Volume do vento
+    gainNode.gain.value = 0.3; // Volume do vento
 
     // Conecta a fonte ao volume, e o volume à saída de som do PC
     windSource.connect(gainNode);
