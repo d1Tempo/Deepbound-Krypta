@@ -8,7 +8,7 @@ const AUDIO_FILES = {
   bgm: new Audio('assets/audio/bgm/Crypt_of_Quiet_Ages.mp3'),
   
   // Nome do arquivo limpo, sem caracteres especiais
-  wind: new Audio('assets/audio/sfx/vento_1.mp3'),
+  wind: new Audio('assets/audio/sfx/vento_1.ogg'),
   
   // Array com as 4 variações de passos para sorteio
   steps: [
