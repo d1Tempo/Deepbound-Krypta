@@ -21,9 +21,10 @@ e abra <http://localhost:8000>.
 ```
 index.html          Página (estrutura HTML e a lista de scripts, em ordem de carregamento)
 css/style.css       Todo o visual da interface
+css/party.css       Visual da equipe (HUD 2 × 2)
 assets/             Texturas PNG (walls, floors, ceilings, doors, buttons, keys, objects)
 docs/               Documento de design
-tests/              Testes automáticos (node tests/party.test.js)
+tests/              Testes automáticos (node tests/party.test.js e node tests/party-hud.test.js)
 js/
   core/             Constantes, temas e variáveis globais do mapa; utilidades
   dungeon/          Geração procedural, portas/botões, variações de textura
@@ -319,7 +320,7 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 10. **Chaves, Mapa Encantado e moedas:** pertencem à equipe (proposta: uma "bolsa da equipe", fora dos slots de cada personagem) ou a um personagem? Hoje eles ficam no inventário único, e a pilha de moedas ocupa o slot 1.
 11. **Armas de duas mãos** ocupam as duas mãos?
 12. **Fadiga:** regra de gasto (por ação?) e de recuperação (por turno, por descanso, com poções).
-13. **Arte:** rostos dos 6 personagens (proposta: pixel art 64×64, no mesmo estilo das texturas), ícones de itens e de mãos, e a silhueta. Quem produz?
+13. **Arte:** rostos dos 6 personagens (proposta: pixel art 64×64, no mesmo estilo das texturas), ícones de itens e de mãos, e a silhueta. Quem produz? Hoje: retratos provisórios gerados por código e ícones de itens em emoji.
 14. **Persistência:** salvar e carregar a equipe e o progresso (local, e depois com web3).
 15. **Vida zero e derrota:** o que acontece com um personagem derrotado (inconsciente, morto, reanimável)? E se a equipe inteira cair?
 16. **Revisão jurídica** antes de qualquer venda de NFTs (veja "Licenças e créditos").
@@ -334,6 +335,17 @@ No Console do navegador (F12), com a página do jogo aberta, depois de registrar
 CharacterProviders.preset.loadAll().then(cs => console.table(cs.map(c => ({ nome: c.character.identity.name, classe: c.derived.className, Vida: c.derived.maxHp, Fadiga: c.derived.maxFp, CA: c.derived.armorClass }))))
 ```
 
+### Como testar o HUD da equipe
+
+Teste automático com DOM simulado: `node tests/party-hud.test.js` (confere os 4 slots, os nomes, as barras, as mãos, as atualizações, o retrato de reserva, os estados de erro e que nenhum texto é inserido como HTML).
+
+No navegador, com o jogo aberto na GUI do jogador, o painel "Equipe" aparece na lateral direita. No Console (F12), para ver as barras mudarem ao vivo:
+
+```js
+PartyState.setVitals(0, 5, 10)   // posição 0 (frente-esquerda): Vida 5, Fadiga 10
+PartyState.setVitals(0, 99, 99)  // volta ao máximo (os valores são limitados ao máximo)
+```
+
 ### Arquitetura prevista (arquivos novos)
 
 ```
@@ -342,8 +354,8 @@ js/party/
   character-rules.js      Regras do SRD (níveis 1 a 5): modificadores, Vida, Classe de Armadura, habilidades [pronto]
   character-presets.js    Os 6 personagens fixos (dados puros)                                          [pronto]
   character-provider.js   PresetProvider (pronto) e NftProvider (futuro), carregamento assíncrono
-  party-state.js          A equipe: 4 posições, personagem selecionado, janela aberta (equipe ou ficha)
-  party-hud.js            Desenho dos 4 slots, seleção, arrastar para trocar, duplo clique
+  party-state.js          A equipe: 4 posições, estado de carga e Vida/Fadiga atuais                      [pronto; seleção e ficha nas etapas 4 e 5]
+  party-hud.js            Desenho dos 4 slots (rosto, nome, barras, mãos)                                 [pronto, estático; seleção, arrastar e duplo clique nas etapas 4 e 5]
   character-sheet.js      Janela de atributos, habilidades, proficiências e estatísticas
   equipment-view.js       Silhueta de equipamento: slots do corpo, arrastar peças, destaque dos slots compatíveis
   hero-encounter.js       Heróis encontrados na masmorra e troca de membro da equipe (etapa futura)
@@ -356,7 +368,7 @@ js/combat/
   turn-manager.js         Iniciativa, fila de turnos, temporizador de 10 s por ação, turno perdido, pausas
   enemy-group.js          Formação dos inimigos (1 a 4, em pares) e regra de alvo (à frente, alcance, lanças)
   combat-actions.js       Ações de uma mão: atacar, conjurar, beber, passar (depende dos pontos 5 a 7)
-assets/portraits/         Rostos dos personagens (PNG, pixel art)
+assets/portraits/         Rostos dos personagens (PNG, pixel art 64×64)                                  [provisórios, gerados por código]
 ```
 
 As regras (`character-rules.js`) e o formato (`character-schema.js`) são funções puras, sem tela, para poderem ser testadas fora do navegador. Isso permite rodar centenas de verificações automáticas, como já fazemos com o gerador de masmorras.
@@ -365,7 +377,7 @@ As regras (`character-rules.js`) e o formato (`character-schema.js`) são funç�
 
 1. **Diretrizes** (esta seção) e decisão dos pontos em aberto.
 2. **Camada de dados:** formato dos personagens e dos itens, regras do SRD (por nível, dentro da faixa suportada), proficiências, os 6 personagens, os itens básicos e os provedores predefinidos, com testes automáticos. **Estado: personagens, regras (níveis 1 a 5), itens-base, equipamento e `PresetProvider` prontos e testados; faltam o formato e o provedor de itens NFT (etapa 11).**
-3. **HUD 2 × 2 estático:** os 4 slots (rosto, nome, barras, mãos), sem interação. Aqui a janela de personagem antiga sai de cena.
+3. **HUD 2 × 2 estático:** os 4 slots (rosto, nome, barras, mãos), sem interação. Aqui a janela de personagem antiga sai de cena. **Estado: pronto. A janela antiga continua no código, escondida por CSS (`css/party.css`), até a etapa 7.**
 4. **Seleção e inventário por personagem** (e a decisão sobre chaves, Mapa e moedas).
 5. **Arrastar para trocar de posição** e **duplo clique para abrir a ficha**.
 6. **Silhueta de equipamento:** slots do corpo e arrastar peças para equipar.
