@@ -24,7 +24,7 @@ css/style.css       Todo o visual da interface
 css/party.css       Visual da equipe (HUD 2 × 2)
 assets/             Texturas e imagens PNG (walls, floors, ceilings, doors, buttons, keys, objects, portraits, items, ui)
 docs/               Documento de design
-tests/              Testes automáticos (node tests/party.test.js e node tests/party-hud.test.js)
+tests/              Testes automáticos (node tests/party.test.js, party-hud.test.js e party-inventory.test.js)
 js/
   core/             Constantes, temas e variáveis globais do mapa; utilidades
   dungeon/          Geração procedural, portas/botões, variações de textura
@@ -290,7 +290,7 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 
 13. **Trocar e gastar itens.** O que o personagem segura e veste **pode ser trocado**: se ele encontra uma arma ou um escudo melhor, troca o que está na mão pelo que está na bolsa, e o item antigo volta para a bolsa (ou é largado, se não houver espaço). Os ícones do HUD vêm dos dados do personagem, então mudam sozinhos quando o item muda. As armas **desgastam e podem quebrar**, obrigando a trocá-las. Isso exige que o item deixe de ser só um "id" e passe a ser uma **instância** (veja abaixo).
 
-    - **Instância de item (proposta).** Um item guardado em mão, equipamento ou bolsa passa a poder ser `{ "id": "longsword", "durability": 52 }`. O texto simples (`"longsword"`) continua valendo e significa "item novo, com durabilidade cheia". Itens NFT futuros usarão o mesmo formato, com a origem do token e modificadores validados. A durabilidade é **progresso do jogo** (muda), e não identidade do item.
+    - **Instância de item (já aceita pelo esquema).** Um item guardado em mão, equipamento ou bolsa é o id em texto (`"longsword"`, item novo) ou uma instância `{ "id": "longsword", "durability": 52 }`; as moedas são uma pilha `{ "id": "gold_coin", "count": 7 }`. Itens NFT futuros usarão o mesmo formato, com a origem do token e modificadores validados. A durabilidade é **progresso do jogo** (muda), e não identidade do item. O catálogo já traz a durabilidade máxima proposta de cada arma, mas o desgaste em si ainda não é aplicado.
     - **Durabilidade das armas (proposta, regra própria: o SRD não tem desgaste de armas).** Cada arma tem uma durabilidade máxima conforme o tipo: adaga 40; espadas 60; machados 50; martelos e maça 70; lança 40; bordão 30; arcos e bestas 40; funda 30. Cada **ataque** com a arma gasta **1 ponto** (acertando ou errando). O ícone ganha uma **barrinha de durabilidade** (verde, amarela e vermelha) e, abaixo de 25%, um aviso de que a arma está quase quebrando.
     - **Arma quebrada (proposta).** Ao chegar a 0 a arma fica **quebrada**: não ataca mais (o personagem luta desarmado) e o ícone aparece rachado, até ser trocada ou **consertada** (por exemplo, com um kit de conserto encontrado na masmorra). Uma arma quebrada não desaparece. Isso evita frustração e protege itens NFT, que nunca devem ser destruídos.
     - **Escudos e armaduras:** na primeira versão não desgastam.
@@ -313,6 +313,7 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 - **Proficiências** com armas e armaduras são "tem ou não tem" (regra do SRD), e não habilidades com nível.
 - Cada personagem tem uma **silhueta de equipamento** com slots nas partes do corpo.
 - **Não há inventário geral:** cada personagem tem a sua bolsa, e a janela de inventário mostra a do personagem selecionado.
+- Um item guardado é o **id** ou uma **instância** `{ id, count?, durability? }` (moedas empilham até 99 por pilha).
 - **Mapa e chaves** vão para a bolsa do personagem **selecionado**, que tem uma **borda branca** no slot (já implementado).
 - A **primeira moeda** segue essa mesma regra; **as moedas seguintes vão sempre para o personagem que já tem a primeira**.
 - O que o personagem segura **pode ser trocado** por itens encontrados, e as armas **desgastam e quebram** (regras de desgaste em proposta, na diretriz 13).
@@ -360,6 +361,10 @@ PartyState.setVitals(0, 5, 10)   // posição 0 (frente-esquerda): Vida 5, Fadig
 PartyState.setVitals(0, 99, 99)  // volta ao máximo (os valores são limitados ao máximo)
 ```
 
+### Como testar as bolsas
+
+`node tests/party-inventory.test.js` confere: destino das chaves, do Mapa e das moedas (inclusive com bolsas cheias e o limite de 99), o consumo de uma chave, a limpeza ao trocar de mapa, a troca de armas e escudos (arma de duas mãos, falta de espaço sem alterar nada) e que os dados continuam válidos depois de cada operação. Esses testes verificam também que cada ícone do catálogo existe em `assets/`.
+
 ### Arquitetura prevista (arquivos novos)
 
 ```
@@ -369,12 +374,13 @@ js/party/
   character-presets.js    Os 6 personagens fixos (dados puros)                                          [pronto]
   character-provider.js   PresetProvider (pronto) e NftProvider (futuro), carregamento assíncrono
   party-state.js          A equipe: 4 posições, personagem selecionado, estado de carga e Vida/Fadiga atuais [pronto; ficha na etapa 5]
+  party-inventory.js      Bolsas individuais: destino de chaves, Mapa e moedas, troca de armas e escudos           [pronto: lógica testada; falta ligar ao jogo]
   party-hud.js            Desenho dos 4 slots (rosto, nome, barras, mãos) e seleção com borda branca       [pronto; arrastar e duplo clique na etapa 5]
   character-sheet.js      Janela de atributos, habilidades, proficiências e estatísticas
   equipment-view.js       Silhueta de equipamento: slots do corpo, arrastar peças, destaque dos slots compatíveis
   hero-encounter.js       Heróis encontrados na masmorra e troca de membro da equipe (etapa futura)
 js/items/
-  item-catalog.js         Itens-base do SRD (armas, armaduras, escudo, poção de cura), por id            [pronto]
+  item-catalog.js         Itens-base do SRD (armas, armaduras, escudo, poção) e itens de bolsa (chaves, Mapa, moeda) [pronto]
   equipment-rules.js      Slots, Classe de Armadura por peças, proficiência de armas e armaduras         [pronto]
   item-schema.js          Formato dos itens e validação (modelo, espaço, modificadores)                  [futuro, itens NFT]
   item-provider.js        ItemProvider (predefinidos) e NftItemProvider                                  [futuro]
@@ -392,7 +398,7 @@ As regras (`character-rules.js`) e o formato (`character-schema.js`) são funç�
 1. **Diretrizes** (esta seção) e decisão dos pontos em aberto.
 2. **Camada de dados:** formato dos personagens e dos itens, regras do SRD (por nível, dentro da faixa suportada), proficiências, os 6 personagens, os itens básicos e os provedores predefinidos, com testes automáticos. **Estado: personagens, regras (níveis 1 a 5), itens-base, equipamento e `PresetProvider` prontos e testados; faltam o formato e o provedor de itens NFT (etapa 11).**
 3. **HUD 2 × 2 estático:** os 4 slots (rosto, nome, barras, mãos), sem interação. Aqui a janela de personagem antiga sai de cena. **Estado: pronto. A janela antiga continua no código, escondida por CSS (`css/party.css`), até a etapa 7.**
-4. **Seleção e bolsa por personagem.** *Pronto:* a seleção do personagem, com borda branca. *Falta:* a bolsa individual (sem inventário geral), com o Mapa e as chaves no personagem selecionado e as moedas no portador, e **equipar nas mãos** a partir da bolsa (trocar a arma ou o escudo por outro encontrado), já com **instâncias de item** (preparadas para o desgaste e para NFTs). Mexe no código antigo do inventário, das chaves e das moedas.
+4. **Seleção e bolsa por personagem.** *Pronto:* a seleção do personagem, com borda branca; a **lógica das bolsas** (`party-inventory.js`: Mapa e chaves no selecionado, moedas no portador, troca de armas e escudos, limpeza ao trocar de mapa), testada. *Falta (etapa 4b-2):* ligar tudo ao jogo antigo (`interactions.js`, `game.js`, `ui/hud.js`, `index.html`), com a janela "Inventário | Nome" e a troca de armas por clique na bolsa. Mexe no código antigo do inventário, das chaves e das moedas.
 5. **Arrastar para trocar de posição** (os personagens trocam de lugar na formação, fora de batalha) e **duplo clique para abrir a ficha**.
 6. **Silhueta de equipamento:** slots do corpo e arrastar peças para equipar.
 7. **Remoção do código antigo** (`player/character.js`, as funções de personagem em `ui/hud.js`, a janela antiga no `index.html` e o CSS correspondente).
