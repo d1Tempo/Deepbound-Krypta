@@ -133,7 +133,7 @@ eq('montante e arco longo são de duas mãos; espada longa não', ['greatsword',
 
 // 5b) Ícones de pixel art: todo item de mão (arma, escudo, poção) tem seu PNG, e há silhuetas para as mãos livres
 for (const item of ItemCatalog.all()) {
-  if (['weapon', 'shield', 'potion'].includes(item.type)) {
+  if (['weapon', 'shield', 'potion', 'key', 'map', 'coin'].includes(item.type)) {
     check('ícone existe: ' + item.id, typeof item.icon === 'string' && fs.existsSync(path.join(__dirname, '..', item.icon)), item.icon);
   }
 }
@@ -173,7 +173,30 @@ rejects('especialização fora do ladino', r => { r.base.expertise = ['athletics
 rejects('ladino sem especialização', r => { delete r.base.expertise; }, preset('preset-ladino-elfo-m'));
 rejects('especialização em habilidade não proficiente', r => { r.base.expertise = ['arcana', 'thieves_tools']; }, preset('preset-ladino-elfo-m'));
 rejects('item desconhecido na mão', r => { r.progress.hands.right = 'lightsaber'; });
-rejects('item em formato de objeto (reservado a NFTs futuros)', r => { r.progress.hands.right = { template: 'greatsword', modifiers: { dmg: 99 } }; });
+rejects('instância sem id (formato antigo reservado a NFTs)', r => { r.progress.hands.right = { template: 'greatsword', modifiers: { dmg: 99 } }; });
+// 6b) Instâncias de item: { id, count?, durability? }
+{
+  const ok = (name, mut, check2) => { const r = clone(preset('preset-guerreiro-anao-m')); mut(r); const v = CharacterSchema.validate(r); check('aceita: ' + name, v.ok && (!check2 || check2(v.value)), v.errors.join('; ')); };
+  ok('pilha de moedas na bolsa', r => { r.progress.inventory = [{ id: 'gold_coin', count: 7 }]; }, v => v.progress.inventory[0].count === 7);
+  ok('arma com durabilidade na mão', r => { r.progress.hands.right = { id: 'longsword', durability: 30 }; }, v => v.progress.hands.right.durability === 30);
+  ok('chaves e Mapa na bolsa', r => { r.progress.inventory = ['key_iron', 'key_gold', 'enchanted_map']; });
+  ok('campos desconhecidos da instância são ignorados', r => { r.progress.inventory = [{ id: 'dagger', durability: 5, poder: 99 }]; }, v => v.progress.inventory[0].poder === undefined);
+  ok('instância só com id', r => { r.progress.inventory = [{ id: 'dagger' }]; });
+  rejects('moedas: contagem 0', r => { r.progress.inventory = [{ id: 'gold_coin', count: 0 }]; });
+  rejects('moedas: contagem 100 (limite 99)', r => { r.progress.inventory = [{ id: 'gold_coin', count: 100 }]; });
+  rejects('contagem em item não empilhável', r => { r.progress.inventory = [{ id: 'dagger', count: 2 }]; });
+  rejects('durabilidade acima do máximo', r => { r.progress.hands.right = { id: 'longsword', durability: 61 }; });
+  rejects('durabilidade negativa', r => { r.progress.hands.right = { id: 'longsword', durability: -1 }; });
+  rejects('durabilidade em item que não desgasta', r => { r.progress.hands.left = { id: 'shield', durability: 3 }; });
+  rejects('instância com id desconhecido', r => { r.progress.inventory = [{ id: 'lightsaber' }]; });
+  rejects('chave nas mãos', r => { r.progress.hands.left = 'key_iron'; });
+  rejects('moeda no tronco', r => { r.progress.equipment.torso = { id: 'gold_coin', count: 1 }; });
+  const d = CharacterProviders.build((() => { const r = clone(preset('preset-guerreiro-anao-m')); r.progress.hands.left = { id: 'shield' }; return r; })());
+  check('Classe de Armadura com escudo em formato de instância', d.ok && d.derived.armorClass === 18, d.ok ? d.derived.armorClass : d.errors.join(';'));
+  check('toda arma tem durabilidade máxima positiva', ItemCatalog.all().filter(i => i.type === 'weapon').every(i => Number.isInteger(i.maxDurability) && i.maxDurability > 0));
+  eq('tipo do chão para o id do catálogo', [ItemCatalog.idForFloorType('iron'), ItemCatalog.idForFloorType('gold'), ItemCatalog.idForFloorType('map'), ItemCatalog.idForFloorType('x')], ['key_iron', 'key_gold', 'enchanted_map', null]);
+  check('chaves e Mapa somem ao trocar de mapa; moeda é empilhável', ['key_iron', 'key_gold', 'enchanted_map'].every(id => ItemCatalog.get(id).mapBound) && ItemCatalog.get('gold_coin').stackable);
+}
 rejects('armadura na mão', r => { r.progress.hands.left = 'chain_mail'; });
 rejects('escudo no tronco', r => { r.progress.equipment.torso = 'shield'; });
 rejects('inventário com mais de 20 itens', r => { r.progress.inventory = new Array(21).fill('dagger'); });
