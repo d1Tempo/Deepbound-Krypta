@@ -2,6 +2,7 @@
  * js/items/item-catalog.js
  * Catálogo de itens-base (dados puros), com números do SRD 5.1: armas, armaduras, escudo e poção de cura.
  * Os itens são identificados por um "id" estável (ex.: 'longsword'). Personagens e inventários guardam apenas o id.
+ * Cada item de mão (arma, escudo, poção) tem um ícone em pixel art em assets/items/<id>.png; as armaduras ainda não têm ícone.
  * Propriedades das armas: finesse (acuidade), light (leve), heavy (pesada), thrown (arremesso), versatile (versátil),
  * two_handed (duas mãos), ammunition (munição), loading (recarga).
  */
@@ -45,13 +46,13 @@ const ItemCatalog = (function () {
 
   const items = {};
   for (const w of WEAPON_LIST) {
-    items[w.id] = Object.freeze(Object.assign({ type: 'weapon', slot: 'hand', twoHanded: w.properties.includes('two_handed') }, w));
+    items[w.id] = Object.freeze(Object.assign({ type: 'weapon', slot: 'hand', twoHanded: w.properties.includes('two_handed'), icon: 'assets/items/' + w.id + '.png' }, w));
   }
   for (const a of ARMOR_LIST) {
-    items[a.id] = Object.freeze(Object.assign({ type: 'armor', slot: 'torso' }, a));
+    items[a.id] = Object.freeze(Object.assign({ type: 'armor', slot: 'torso', icon: null }, a));
   }
-  items.shield = Object.freeze({ id: 'shield', name: 'Escudo', type: 'shield', slot: 'hand', acBonus: 2 });
-  items.potion_healing = Object.freeze({ id: 'potion_healing', name: 'Poção de Cura', type: 'potion', slot: 'hand', effect: Object.freeze({ kind: 'heal', dice: '2d4', bonus: 2 }) });
+  items.shield = Object.freeze({ id: 'shield', name: 'Escudo', type: 'shield', slot: 'hand', acBonus: 2, icon: 'assets/items/shield.png' });
+  items.potion_healing = Object.freeze({ id: 'potion_healing', name: 'Poção de Cura', type: 'potion', slot: 'hand', icon: 'assets/items/potion_healing.png', effect: Object.freeze({ kind: 'heal', dice: '2d4', bonus: 2 }) });
   Object.freeze(items);
 
   function has(id) {
