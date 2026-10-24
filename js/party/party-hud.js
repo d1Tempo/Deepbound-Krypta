@@ -3,19 +3,13 @@
  * HUD da equipe: 4 slots em 2 × 2 (linha de cima = frente, linha de baixo = trás).
  * Cada slot mostra rosto, nome, barras de Vida e Fadiga (atual / máximo) e as duas mãos.
  * Todo texto é inserido com textContent (nunca innerHTML), pois nomes poderão vir de fontes externas (NFTs).
- * Esta etapa é estática (sem cliques). Depende de PartyState e ItemCatalog.
+ * Mão livre mostra a silhueta de uma mão; arma de duas mãos ocupa um slot largo (as duas mãos).
+ * Clicar no rosto seleciona o personagem (borda branca). As mãos ainda não reagem a cliques. Depende de PartyState e ItemCatalog.
  */
 const PartyHud = (function () {
   const ROW_LABELS = ['Frente', 'Trás'];
   const HAND_LABELS = { right: 'D', left: 'E' };
   const HAND_NAMES = { right: 'Mão direita', left: 'Mão esquerda' };
-
-  // Ícones provisórios (emoji) até existir arte própria dos itens.
-  const ICONS = {
-    dagger: '🗡️', rapier: '🗡️', shortsword: '🗡️', mace: '🔨', warhammer: '🔨', light_hammer: '🔨',
-    handaxe: '🪓', battleaxe: '🪓', longbow: '🏹', shortbow: '🏹', light_crossbow: '🏹', hand_crossbow: '🏹',
-    sling: '🏹', spear: '🔱', shield: '🛡️', potion_healing: '🧪'
-  };
 
   let root = null;
 
@@ -27,10 +21,6 @@ const PartyHud = (function () {
   }
   function clear(node) {
     while (node.firstChild) node.removeChild(node.firstChild);
-  }
-  function iconFor(item) {
-    if (ICONS[item.id]) return ICONS[item.id];
-    return item.type === 'weapon' ? '⚔️' : '❔';
   }
   function initials(name) {
     return name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
@@ -69,31 +59,72 @@ const PartyHud = (function () {
     return group;
   }
 
-  // Mão: mostra o item segurado; se a outra mão segura uma arma de duas mãos, esta aparece ocupada (esmaecida).
-  function buildHand(handId, itemId, occupiedByTwoHanded) {
+  // Ícone de um item (pixel art em assets/items). Se a imagem falhar, mostra as 3 primeiras letras do nome.
+  function buildItemIcon(item) {
+    const img = el('img', 'party-hand-icon');
+    img.alt = item.name;
+    img.addEventListener('error', () => {
+      const fallback = el('span', 'party-hand-fallback', item.name.slice(0, 3).toUpperCase());
+      if (img.parent) {
+        img.parent.appendChild(fallback);
+        img.parent.removeChild(img);
+      }
+    });
+    img.src = item.icon;
+    return img;
+  }
+
+  // Mão: o item segurado ou, se estiver livre, a silhueta da mão correspondente (direita ou esquerda).
+  function buildHand(handId, itemId) {
     const item = itemId ? ItemCatalog.get(itemId) : null;
-    const hand = el('div', 'party-hand' + (item ? ' filled' : '') + (occupiedByTwoHanded ? ' ghost' : ''));
+    const hand = el('div', 'party-hand' + (item ? ' filled' : ''));
     hand.setAttribute('data-hand', handId);
     hand.appendChild(el('span', 'party-hand-label', HAND_LABELS[handId]));
     if (item) {
-      hand.appendChild(el('span', 'party-hand-icon', iconFor(item)));
+      hand.appendChild(buildItemIcon(item));
       hand.setAttribute('title', HAND_NAMES[handId] + ': ' + item.name);
-    } else if (occupiedByTwoHanded) {
-      hand.appendChild(el('span', 'party-hand-icon', iconFor(occupiedByTwoHanded)));
-      hand.setAttribute('title', HAND_NAMES[handId] + ': ocupada pela arma de duas mãos (' + occupiedByTwoHanded.name + ')');
     } else {
+      const sil = el('img', 'party-hand-empty');
+      sil.alt = '';
+      sil.src = 'assets/ui/hand_' + handId + '.png';
+      hand.appendChild(sil);
       hand.setAttribute('title', HAND_NAMES[handId] + ': livre');
     }
+    return hand;
+  }
+
+  // Arma de duas mãos: um único slot largo que ocupa as duas mãos.
+  function buildTwoHandedSlot(item) {
+    const hand = el('div', 'party-hand filled two-handed');
+    hand.setAttribute('data-hand', 'both');
+    hand.appendChild(el('span', 'party-hand-label', 'D + E'));
+    hand.appendChild(el('span', 'party-hand-badge', '2 mãos'));
+    hand.appendChild(buildItemIcon(item));
+    hand.setAttribute('title', 'Duas mãos: ' + item.name);
     return hand;
   }
 
   function buildSlot(index, member) {
     const ch = member.character;
     const d = member.derived;
-    const slot = el('div', 'party-slot');
+    const selected = PartyState.getSelectedIndex() === index;
+    const slot = el('div', 'party-slot' + (selected ? ' selected' : ''));
     slot.setAttribute('data-index', String(index));
 
+    // Rosto e nome: clicar (ou Enter/Espaço) seleciona o personagem.
     const top = el('div', 'party-slot-top');
+    top.setAttribute('role', 'button');
+    top.setAttribute('tabindex', '0');
+    top.setAttribute('aria-label', 'Selecionar ' + ch.identity.name);
+    top.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    top.setAttribute('title', 'Selecionar ' + ch.identity.name);
+    top.addEventListener('click', () => PartyState.select(index));
+    top.addEventListener('keydown', ev => {
+      if (ev && (ev.key === 'Enter' || ev.key === ' ')) {
+        if (ev.preventDefault) ev.preventDefault();
+        PartyState.select(index);
+      }
+    });
     top.appendChild(buildPortrait(ch.identity.name, ch.identity.portrait));
     const info = el('div', 'party-info');
     info.appendChild(el('div', 'party-name', ch.identity.name));
@@ -111,11 +142,28 @@ const PartyHud = (function () {
     const hands = el('div', 'party-hands');
     const rightItem = ch.progress.hands.right ? ItemCatalog.get(ch.progress.hands.right) : null;
     const leftItem = ch.progress.hands.left ? ItemCatalog.get(ch.progress.hands.left) : null;
-    const rightTwoHanded = rightItem && rightItem.twoHanded && !leftItem ? rightItem : null;
-    hands.appendChild(buildHand('right', ch.progress.hands.right, null));
-    hands.appendChild(buildHand('left', ch.progress.hands.left, rightTwoHanded));
+    if (rightItem && rightItem.twoHanded && !leftItem) {
+      hands.appendChild(buildTwoHandedSlot(rightItem));
+    } else {
+      hands.appendChild(buildHand('right', ch.progress.hands.right));
+      hands.appendChild(buildHand('left', ch.progress.hands.left));
+    }
     slot.appendChild(hands);
     return slot;
+  }
+
+  // Só alterna a borda branca do selecionado; não recria os slots (importante para o duplo clique futuro).
+  function updateSelection() {
+    if (!root) return;
+    const selectedIndex = PartyState.getSelectedIndex();
+    for (const slot of root.children) {
+      if (!slot.className.split(' ').includes('party-slot')) continue;
+      const isSelected = slot.getAttribute('data-index') === String(selectedIndex);
+      const base = slot.className.split(' ').filter(c => c && c !== 'selected');
+      slot.className = base.concat(isSelected ? ['selected'] : []).join(' ');
+      const top = slot.firstChild;
+      if (top) top.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    }
   }
 
   function render() {
@@ -144,6 +192,7 @@ const PartyHud = (function () {
     root = rootElement || document.getElementById('partyGrid');
     if (!root) return false;
     PartyState.onChange(render);
+    PartyState.onSelect(updateSelection);
     render();
     PartyState.init();
     return true;
