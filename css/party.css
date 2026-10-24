@@ -79,6 +79,19 @@ body.player-gui .workspace {
   gap: 7px;
   align-items: center;
   min-width: 0;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.party-slot-top:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Personagem selecionado: borda branca (é quem recebe o Mapa e as chaves e mostra a sua bolsa). */
+.party-slot.selected {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff, 0 0 12px rgba(255, 255, 255, 0.28);
 }
 
 .party-portrait {
@@ -184,19 +197,18 @@ body.player-gui .workspace {
 .party-hands {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 58px;
   gap: 6px;
 }
 
 .party-hand {
   position: relative;
-  aspect-ratio: 1.3 / 1;
   background: #06090d;
   border: 1px solid #262c36;
   border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.15rem;
 }
 
 .party-hand.filled {
@@ -205,8 +217,30 @@ body.player-gui .workspace {
   box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.65);
 }
 
-.party-hand.ghost {
-  opacity: 0.35;
+/* Arma de duas mãos: um único slot largo ocupando as duas mãos. */
+.party-hand.two-handed {
+  grid-column: 1 / -1;
+  border-color: #6b5a2e;
+}
+
+.party-hand-icon {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+
+/* Mão livre: silhueta da mão (direita ou esquerda), esmaecida. */
+.party-hand-empty {
+  width: 40px;
+  height: 40px;
+  opacity: 0.3;
+  image-rendering: pixelated;
+}
+
+.party-hand-fallback {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #8b949e;
 }
 
 .party-hand-label {
@@ -216,4 +250,13 @@ body.player-gui .workspace {
   font-size: 0.52rem;
   font-family: 'Consolas', monospace;
   color: #6e7681;
+}
+
+.party-hand-badge {
+  position: absolute;
+  top: 2px;
+  right: 5px;
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: #f2cc60;
 }
