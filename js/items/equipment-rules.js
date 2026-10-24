@@ -11,7 +11,7 @@ const EquipmentRules = (function () {
   const AC_CAP = 22;
 
   function itemOf(entry) {
-    return typeof entry === 'string' ? ItemCatalog.get(entry) : null;
+    return ItemCatalog.resolve(entry);
   }
 
   // O item cabe no slot? (mãos aceitam arma, escudo e poção; o tronco aceita armadura; as demais peças usam o slot do item)
