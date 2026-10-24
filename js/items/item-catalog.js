@@ -2,6 +2,7 @@
  * js/items/item-catalog.js
  * Catálogo de itens-base (dados puros), com números do SRD 5.1: armas, armaduras, escudo e poção de cura.
  * Os itens são identificados por um "id" estável (ex.: 'longsword'). Personagens e inventários guardam apenas o id.
+ * Um item guardado em mão, equipamento ou bolsa é o id (texto) ou uma instância { id, count?, durability? }.
  * Cada item de mão (arma, escudo, poção) tem um ícone em pixel art em assets/items/<id>.png; as armaduras ainda não têm ícone.
  * Propriedades das armas: finesse (acuidade), light (leve), heavy (pesada), thrown (arremesso), versatile (versátil),
  * two_handed (duas mãos), ammunition (munição), loading (recarga).
@@ -44,15 +45,28 @@ const ItemCatalog = (function () {
     { id: 'plate',           name: 'Armadura de placas', armorType: 'heavy',  baseAc: 18, dexCap: 0,    strReq: 15, stealthDisadvantage: true }
   ];
 
+  // Durabilidade máxima das armas (PROPOSTA, regra própria do jogo: o SRD não tem desgaste de armas).
+  const MAX_DURABILITY = {
+    dagger: 40, dart: 20, sling: 30, quarterstaff: 30, mace: 70, spear: 40, handaxe: 50, light_hammer: 70,
+    light_crossbow: 40, shortbow: 40, longsword: 60, greatsword: 60, rapier: 60, shortsword: 60,
+    battleaxe: 50, warhammer: 70, longbow: 40, hand_crossbow: 40
+  };
+
   const items = {};
   for (const w of WEAPON_LIST) {
-    items[w.id] = Object.freeze(Object.assign({ type: 'weapon', slot: 'hand', twoHanded: w.properties.includes('two_handed'), icon: 'assets/items/' + w.id + '.png' }, w));
+    items[w.id] = Object.freeze(Object.assign({ type: 'weapon', slot: 'hand', twoHanded: w.properties.includes('two_handed'), icon: 'assets/items/' + w.id + '.png', maxDurability: MAX_DURABILITY[w.id] }, w));
   }
   for (const a of ARMOR_LIST) {
     items[a.id] = Object.freeze(Object.assign({ type: 'armor', slot: 'torso', icon: null }, a));
   }
   items.shield = Object.freeze({ id: 'shield', name: 'Escudo', type: 'shield', slot: 'hand', acBonus: 2, icon: 'assets/items/shield.png' });
   items.potion_healing = Object.freeze({ id: 'potion_healing', name: 'Poção de Cura', type: 'potion', slot: 'hand', icon: 'assets/items/potion_healing.png', effect: Object.freeze({ kind: 'heal', dice: '2d4', bonus: 2 }) });
+  // Itens que vão para a bolsa (não são vestidos nem seguram na mão). "mapBound": somem ao trocar de mapa.
+  items.key_iron = Object.freeze({ id: 'key_iron', name: 'Chave de Ferro', type: 'key', slot: 'bag', icon: 'assets/keys/iron.png', mapBound: true });
+  items.key_gold = Object.freeze({ id: 'key_gold', name: 'Chave de Ouro', type: 'key', slot: 'bag', icon: 'assets/keys/gold.png', mapBound: true });
+  items.enchanted_map = Object.freeze({ id: 'enchanted_map', name: 'Mapa Encantado', type: 'map', slot: 'bag', icon: 'assets/keys/map.png', mapBound: true });
+  // Moeda: empilhável (até 99 por pilha, ocupando 1 slot da bolsa).
+  items.gold_coin = Object.freeze({ id: 'gold_coin', name: 'Dobrão de Ouro', type: 'coin', slot: 'bag', icon: 'assets/objects/coin_icon.png', stackable: true, maxStack: 99 });
   Object.freeze(items);
 
   function has(id) {
@@ -61,8 +75,18 @@ const ItemCatalog = (function () {
   function get(id) {
     return has(id) ? items[id] : null;
   }
+  // Aceita o texto simples ("longsword") ou uma instância ({ id: 'longsword', durability: 52 }) e devolve o item do catálogo.
+  function resolve(entry) {
+    if (typeof entry === 'string') return get(entry);
+    if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) return get(entry.id);
+    return null;
+  }
+  // Tipo do objeto no chão do mapa (keysOnFloor: 'iron', 'gold', 'map') -> id do item do catálogo.
+  function idForFloorType(type) {
+    return { iron: 'key_iron', gold: 'key_gold', map: 'enchanted_map' }[type] || null;
+  }
   function all() {
     return Object.values(items);
   }
-  return { has, get, all };
+  return { has, get, resolve, idForFloorType, all };
 })();
