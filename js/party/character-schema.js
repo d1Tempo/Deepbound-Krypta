@@ -115,11 +115,29 @@ const CharacterSchema = (function () {
     return { abilities, skillProficiencies: skills, expertise };
   }
 
+  // Item guardado: o id (texto) ou uma instância { id, count?, durability? }. Devolve a referência normalizada,
+  // null (vazio) ou undefined (inválido, com o erro registrado). Campos desconhecidos da instância são ignorados.
   function validateItemRef(entry, path, errors) {
     if (entry === null) return null;
-    if (typeof entry !== 'string') { errors.push(path + ': somente o id do item (texto) é aceito nesta versão'); return undefined; }
-    if (!ItemCatalog.has(entry)) { errors.push(path + ': item desconhecido'); return undefined; }
-    return entry;
+    if (typeof entry === 'string') {
+      if (!ItemCatalog.has(entry)) { errors.push(path + ': item desconhecido'); return undefined; }
+      return entry;
+    }
+    if (!isPlainObject(entry)) { errors.push(path + ': o id do item (texto) ou uma instância { id, ... }'); return undefined; }
+    const item = typeof entry.id === 'string' ? ItemCatalog.get(entry.id) : null;
+    if (!item) { errors.push(path + ': instância sem id de item conhecido'); return undefined; }
+    const ref = { id: item.id };
+    if (entry.count !== undefined && entry.count !== null) {
+      if (!item.stackable) { errors.push(path + '.count: este item não é empilhável'); return undefined; }
+      if (!isInt(entry.count) || entry.count < 1 || entry.count > item.maxStack) { errors.push(path + '.count: inteiro de 1 a ' + item.maxStack); return undefined; }
+      ref.count = entry.count;
+    }
+    if (entry.durability !== undefined && entry.durability !== null) {
+      if (typeof item.maxDurability !== 'number') { errors.push(path + '.durability: este item não desgasta'); return undefined; }
+      if (!isInt(entry.durability) || entry.durability < 0 || entry.durability > item.maxDurability) { errors.push(path + '.durability: inteiro de 0 a ' + item.maxDurability); return undefined; }
+      ref.durability = entry.durability;
+    }
+    return ref;
   }
 
   function validateProgress(raw, errors) {
@@ -140,7 +158,7 @@ const CharacterSchema = (function () {
       else for (const h of EquipmentRules.HAND_SLOTS) {
         const ref = validateItemRef(raw.hands[h] === undefined ? null : raw.hands[h], 'progress.hands.' + h, errors);
         if (ref !== undefined) {
-          if (ref !== null && !EquipmentRules.slotAccepts(ItemCatalog.get(ref), h)) errors.push('progress.hands.' + h + ': item não cabe na mão');
+          if (ref !== null && !EquipmentRules.slotAccepts(ItemCatalog.resolve(ref), h)) errors.push('progress.hands.' + h + ': item não cabe na mão');
           else progress.hands[h] = ref;
         }
       }
@@ -150,7 +168,7 @@ const CharacterSchema = (function () {
       else for (const s of EquipmentRules.BODY_SLOTS) {
         const ref = validateItemRef(raw.equipment[s] === undefined ? null : raw.equipment[s], 'progress.equipment.' + s, errors);
         if (ref !== undefined) {
-          if (ref !== null && !EquipmentRules.slotAccepts(ItemCatalog.get(ref), s)) errors.push('progress.equipment.' + s + ': item não cabe neste slot');
+          if (ref !== null && !EquipmentRules.slotAccepts(ItemCatalog.resolve(ref), s)) errors.push('progress.equipment.' + s + ': item não cabe neste slot');
           else progress.equipment[s] = ref;
         }
       }
