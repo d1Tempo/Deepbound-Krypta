@@ -131,6 +131,14 @@ eq('slots aceitam o item certo', [EquipmentRules.slotAccepts(ItemCatalog.get('ch
   EquipmentRules.slotAccepts(ItemCatalog.get('shield'), 'left'), EquipmentRules.slotAccepts(ItemCatalog.get('potion_healing'), 'right')], [true, false, true, true]);
 eq('montante e arco longo são de duas mãos; espada longa não', ['greatsword', 'longbow', 'longsword'].map(id => ItemCatalog.get(id).twoHanded), [true, true, false]);
 
+// 5b) Ícones de pixel art: todo item de mão (arma, escudo, poção) tem seu PNG, e há silhuetas para as mãos livres
+for (const item of ItemCatalog.all()) {
+  if (['weapon', 'shield', 'potion'].includes(item.type)) {
+    check('ícone existe: ' + item.id, typeof item.icon === 'string' && fs.existsSync(path.join(__dirname, '..', item.icon)), item.icon);
+  }
+}
+check('silhuetas das mãos existem', ['hand_left', 'hand_right'].every(n => fs.existsSync(path.join(__dirname, '..', 'assets', 'ui', n + '.png'))));
+
 // 6) Validação: o que deve ser rejeitado (entrada externa é não confiável)
 rejects('nível 0', r => { r.identity.level = 0; });
 rejects('nível 6 (fora da faixa suportada)', r => { r.identity.level = 6; });
