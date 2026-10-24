@@ -76,7 +76,7 @@ const PartyHud = (function () {
 
   // Mão: o item segurado ou, se estiver livre, a silhueta da mão correspondente (direita ou esquerda).
   function buildHand(handId, itemId) {
-    const item = itemId ? ItemCatalog.get(itemId) : null;
+    const item = ItemCatalog.resolve(itemId);
     const hand = el('div', 'party-hand' + (item ? ' filled' : ''));
     hand.setAttribute('data-hand', handId);
     hand.appendChild(el('span', 'party-hand-label', HAND_LABELS[handId]));
@@ -140,8 +140,8 @@ const PartyHud = (function () {
     slot.appendChild(bars);
 
     const hands = el('div', 'party-hands');
-    const rightItem = ch.progress.hands.right ? ItemCatalog.get(ch.progress.hands.right) : null;
-    const leftItem = ch.progress.hands.left ? ItemCatalog.get(ch.progress.hands.left) : null;
+    const rightItem = ItemCatalog.resolve(ch.progress.hands.right);
+    const leftItem = ItemCatalog.resolve(ch.progress.hands.left);
     if (rightItem && rightItem.twoHanded && !leftItem) {
       hands.appendChild(buildTwoHandedSlot(rightItem));
     } else {

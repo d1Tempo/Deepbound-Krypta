@@ -53,6 +53,11 @@ const PartyState = (function () {
     notify();
   }
 
+  // Avisa a interface que os dados de um personagem mudaram (bolsa, mãos, Vida...).
+  function touch() {
+    notify();
+  }
+
   function getMember(index) {
     return members[index] || null;
   }
@@ -92,5 +97,5 @@ const PartyState = (function () {
     return true;
   }
 
-  return { SLOT_COUNT, init, onChange, onSelect, select, getSelectedIndex, getSelectedMember, getMember, getMembers, getStatus, getError, setVitals };
+  return { SLOT_COUNT, init, onChange, onSelect, touch, select, getSelectedIndex, getSelectedMember, getMember, getMembers, getStatus, getError, setVitals };
 })();
