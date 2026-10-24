@@ -22,7 +22,7 @@ e abra <http://localhost:8000>.
 index.html          Página (estrutura HTML e a lista de scripts, em ordem de carregamento)
 css/style.css       Todo o visual da interface
 css/party.css       Visual da equipe (HUD 2 × 2)
-assets/             Texturas PNG (walls, floors, ceilings, doors, buttons, keys, objects)
+assets/             Texturas e imagens PNG (walls, floors, ceilings, doors, buttons, keys, objects, portraits, items, ui)
 docs/               Documento de design
 tests/              Testes automáticos (node tests/party.test.js e node tests/party-hud.test.js)
 js/
@@ -147,9 +147,9 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
    | Mão livre       | ataque desarmado                                                      |
    | Escudo          | bônus passivo na Classe de Armadura (proposta: sem ação ao clicar)    |
 
-   Fora de batalha, poções e scrolls utilitários podem ser usados a qualquer momento; um ataque só tem efeito com inimigo à frente. Durante a batalha, valem as regras da diretriz 10. As ações de mão dependem do sistema de combate, que **não faz parte** da primeira entrega da interface (veja "Ordem de implementação").
+   Fora de batalha, poções e scrolls utilitários podem ser usados a qualquer momento; um ataque só tem efeito com inimigo à frente. Durante a batalha, valem as regras da diretriz 10. Um slot de mão vazio mostra a **silhueta de uma mão** (direita ou esquerda); uma arma de duas mãos ocupa **um slot largo** que cobre as duas mãos. As ações de mão dependem do sistema de combate, que **não faz parte** da primeira entrega da interface (veja "Ordem de implementação").
 
-4. **Seleção.** Clicar no rosto seleciona o personagem. A área de **Inventário** passa a mostrar **somente os itens daquele personagem**, e o título indica de quem é: `Inventário | Nome do personagem`.
+4. **Seleção.** Clicar no rosto seleciona o personagem. A área de **Inventário** passa a mostrar **somente os itens daquele personagem**, e o título indica de quem é: `Inventário | Nome do personagem`. **Não existe inventário geral da equipe:** cada personagem tem a sua própria bolsa (20 slots), e a janela mostra sempre a do personagem selecionado. O personagem selecionado é indicado por uma **borda branca** em volta do seu slot (o primeiro começa selecionado) e é quem **recebe o Mapa Encantado e as chaves** encontrados. A **primeira moeda** segue a mesma regra; depois disso, **todas as moedas seguintes vão para o mesmo personagem** (o portador das moedas), mesmo que outro esteja selecionado.
 
 5. **Trocar de posição.** Clicar e **segurar** o rosto de um personagem e **arrastá-lo** até o slot de outro faz os dois trocarem de posição (inclusive entre frente e trás). Deve funcionar com mouse e com toque (segurar). A seleção continua no mesmo personagem depois da troca. **Durante uma batalha a troca de posição não é permitida**, com uma única exceção: quando um personagem da frente cai, um de trás pode **avançar para o lugar vago** (veja a diretriz 10).
 
@@ -288,6 +288,13 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 
 12. **Heróis encontrados na masmorra.** Os personagens básicos são de nível 1 e **nunca sobem de nível**. O progresso do jogador vem de **encontrar na masmorra heróis melhores** do que os da sua equipe e **trocá-los** por membros atuais, além de encontrar equipamento. Quando o web3 chegar, os heróis de nível mais alto serão **NFTs**. Por isso o **nível** é um dado do personagem (imutável) e as regras precisam calcular heróis acima do nível 1 (bônus de proficiência, Vida, magias e traços de classe por nível).
 
+13. **Trocar e gastar itens.** O que o personagem segura e veste **pode ser trocado**: se ele encontra uma arma ou um escudo melhor, troca o que está na mão pelo que está na bolsa, e o item antigo volta para a bolsa (ou é largado, se não houver espaço). Os ícones do HUD vêm dos dados do personagem, então mudam sozinhos quando o item muda. As armas **desgastam e podem quebrar**, obrigando a trocá-las. Isso exige que o item deixe de ser só um "id" e passe a ser uma **instância** (veja abaixo).
+
+    - **Instância de item (proposta).** Um item guardado em mão, equipamento ou bolsa passa a poder ser `{ "id": "longsword", "durability": 52 }`. O texto simples (`"longsword"`) continua valendo e significa "item novo, com durabilidade cheia". Itens NFT futuros usarão o mesmo formato, com a origem do token e modificadores validados. A durabilidade é **progresso do jogo** (muda), e não identidade do item.
+    - **Durabilidade das armas (proposta, regra própria: o SRD não tem desgaste de armas).** Cada arma tem uma durabilidade máxima conforme o tipo: adaga 40; espadas 60; machados 50; martelos e maça 70; lança 40; bordão 30; arcos e bestas 40; funda 30. Cada **ataque** com a arma gasta **1 ponto** (acertando ou errando). O ícone ganha uma **barrinha de durabilidade** (verde, amarela e vermelha) e, abaixo de 25%, um aviso de que a arma está quase quebrando.
+    - **Arma quebrada (proposta).** Ao chegar a 0 a arma fica **quebrada**: não ataca mais (o personagem luta desarmado) e o ícone aparece rachado, até ser trocada ou **consertada** (por exemplo, com um kit de conserto encontrado na masmorra). Uma arma quebrada não desaparece. Isso evita frustração e protege itens NFT, que nunca devem ser destruídos.
+    - **Escudos e armaduras:** na primeira versão não desgastam.
+
 ### Decisões já tomadas
 
 - Combate **por turnos**, com **10 segundos** por ação e perda do turno se o tempo acabar.
@@ -305,6 +312,11 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 - **Níveis suportados: de 1 a 5** (heróis encontrados e NFTs). O motor calcula por nível e rejeita o que estiver fora da faixa.
 - **Proficiências** com armas e armaduras são "tem ou não tem" (regra do SRD), e não habilidades com nível.
 - Cada personagem tem uma **silhueta de equipamento** com slots nas partes do corpo.
+- **Não há inventário geral:** cada personagem tem a sua bolsa, e a janela de inventário mostra a do personagem selecionado.
+- **Mapa e chaves** vão para a bolsa do personagem **selecionado**, que tem uma **borda branca** no slot (já implementado).
+- A **primeira moeda** segue essa mesma regra; **as moedas seguintes vão sempre para o personagem que já tem a primeira**.
+- O que o personagem segura **pode ser trocado** por itens encontrados, e as armas **desgastam e quebram** (regras de desgaste em proposta, na diretriz 13).
+- Os personagens **trocam de lugar** na formação (diretriz 5), fora de batalha.
 
 ### Pontos em aberto (decidir antes de programar)
 
@@ -317,13 +329,15 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 7. **Detalhes de alcance:** a lança empunhada de quem está atrás escolhe o alvo ao acaso entre os da primeira fileira, ou usa a sua coluna? Armas de longo alcance de quem está na frente atacam o inimigo à frente ou ao acaso? Armas corpo a corpo comuns nas mãos de quem está atrás têm algum efeito (proposta: nenhum)?
 8. **Magias em aliados:** como é o clique? (proposta: clicar no scroll ou na magia e, em seguida, na foto do aliado, tudo dentro dos 10 segundos). Um aliado derrotado pode receber cura?
 9. **Calibrar o ritmo dos inimigos** com monstros reais: rodadas de 8 s e carência de 3 s fora do contador, perseguição de 1 casa a cada 4 s, e se o avanço de um inimigo consome o turno dele (proposta: sim, no lugar do ataque).
-10. **Chaves, Mapa Encantado e moedas:** pertencem à equipe (proposta: uma "bolsa da equipe", fora dos slots de cada personagem) ou a um personagem? Hoje eles ficam no inventário único, e a pilha de moedas ocupa o slot 1.
-11. **Armas de duas mãos** ocupam as duas mãos?
-12. **Fadiga:** regra de gasto (por ação?) e de recuperação (por turno, por descanso, com poções).
-13. **Arte:** rostos dos 6 personagens (proposta: pixel art 64×64, no mesmo estilo das texturas), ícones de itens e de mãos, e a silhueta. Quem produz? Hoje: retratos provisórios gerados por código e ícones de itens em emoji.
-14. **Persistência:** salvar e carregar a equipe e o progresso (local, e depois com web3).
-15. **Vida zero e derrota:** o que acontece com um personagem derrotado (inconsciente, morto, reanimável)? E se a equipe inteira cair?
-16. **Revisão jurídica** antes de qualquer venda de NFTs (veja "Licenças e créditos").
+10. **Detalhes da bolsa:** se a bolsa de quem deve receber estiver cheia (proposta: o item vai para o próximo personagem com espaço; se todos estiverem cheios, não é pego). As chaves e o Mapa valem para a equipe enquanto qualquer personagem os carregar. As moedas formam uma pilha (até 99) na bolsa do portador. O que acontece com as moedas e os itens se o portador cair ou for substituído, e quem passa a ser o novo portador (proposta: a próxima primeira moeda vai para o selecionado).
+11. **Seleção e Vida zero:** se o personagem selecionado cai, quem fica selecionado? (proposta: o próximo que estiver de pé, na ordem da formação).
+12. **Armas de duas mãos** ocupam as duas mãos? (Hoje o HUD já mostra um slot largo para a arma de duas mãos; é só uma proposta.)
+13. **Desgaste das armas:** o que gasta durabilidade (1 por ataque, como proposto, ou só ao acertar ou nas falhas críticas)? Os valores por tipo de arma estão bons? Arma quebrada fica inutilizável e pode ser consertada (proposta) ou some? Como se conserta (kit de conserto, ferreiro, magia)? Escudos e armaduras também desgastam no futuro?
+14. **Fadiga:** regra de gasto (por ação?) e de recuperação (por turno, por descanso, com poções).
+15. **Arte:** rostos dos 6 personagens (proposta: pixel art 64×64, no mesmo estilo das texturas), ícones de itens e de mãos, e a silhueta. Quem produz? Hoje: retratos provisórios e ícones de pixel art (armas, escudo, poção e silhuetas de mão), todos gerados por código; as armaduras ainda não têm ícone.
+16. **Persistência:** salvar e carregar a equipe e o progresso (local, e depois com web3).
+17. **Vida zero e derrota:** o que acontece com um personagem derrotado (inconsciente, morto, reanimável)? E se a equipe inteira cair?
+18. **Revisão jurídica** antes de qualquer venda de NFTs (veja "Licenças e créditos").
 
 ### Como testar a camada de dados
 
@@ -354,8 +368,8 @@ js/party/
   character-rules.js      Regras do SRD (níveis 1 a 5): modificadores, Vida, Classe de Armadura, habilidades [pronto]
   character-presets.js    Os 6 personagens fixos (dados puros)                                          [pronto]
   character-provider.js   PresetProvider (pronto) e NftProvider (futuro), carregamento assíncrono
-  party-state.js          A equipe: 4 posições, estado de carga e Vida/Fadiga atuais                      [pronto; seleção e ficha nas etapas 4 e 5]
-  party-hud.js            Desenho dos 4 slots (rosto, nome, barras, mãos)                                 [pronto, estático; seleção, arrastar e duplo clique nas etapas 4 e 5]
+  party-state.js          A equipe: 4 posições, personagem selecionado, estado de carga e Vida/Fadiga atuais [pronto; ficha na etapa 5]
+  party-hud.js            Desenho dos 4 slots (rosto, nome, barras, mãos) e seleção com borda branca       [pronto; arrastar e duplo clique na etapa 5]
   character-sheet.js      Janela de atributos, habilidades, proficiências e estatísticas
   equipment-view.js       Silhueta de equipamento: slots do corpo, arrastar peças, destaque dos slots compatíveis
   hero-encounter.js       Heróis encontrados na masmorra e troca de membro da equipe (etapa futura)
@@ -378,8 +392,8 @@ As regras (`character-rules.js`) e o formato (`character-schema.js`) são funç�
 1. **Diretrizes** (esta seção) e decisão dos pontos em aberto.
 2. **Camada de dados:** formato dos personagens e dos itens, regras do SRD (por nível, dentro da faixa suportada), proficiências, os 6 personagens, os itens básicos e os provedores predefinidos, com testes automáticos. **Estado: personagens, regras (níveis 1 a 5), itens-base, equipamento e `PresetProvider` prontos e testados; faltam o formato e o provedor de itens NFT (etapa 11).**
 3. **HUD 2 × 2 estático:** os 4 slots (rosto, nome, barras, mãos), sem interação. Aqui a janela de personagem antiga sai de cena. **Estado: pronto. A janela antiga continua no código, escondida por CSS (`css/party.css`), até a etapa 7.**
-4. **Seleção e inventário por personagem** (e a decisão sobre chaves, Mapa e moedas).
-5. **Arrastar para trocar de posição** e **duplo clique para abrir a ficha**.
+4. **Seleção e bolsa por personagem.** *Pronto:* a seleção do personagem, com borda branca. *Falta:* a bolsa individual (sem inventário geral), com o Mapa e as chaves no personagem selecionado e as moedas no portador, e **equipar nas mãos** a partir da bolsa (trocar a arma ou o escudo por outro encontrado), já com **instâncias de item** (preparadas para o desgaste e para NFTs). Mexe no código antigo do inventário, das chaves e das moedas.
+5. **Arrastar para trocar de posição** (os personagens trocam de lugar na formação, fora de batalha) e **duplo clique para abrir a ficha**.
 6. **Silhueta de equipamento:** slots do corpo e arrastar peças para equipar.
 7. **Remoção do código antigo** (`player/character.js`, as funções de personagem em `ui/hud.js`, a janela antiga no `index.html` e o CSS correspondente).
 8. **Combate por turnos:** gerenciador de turnos (iniciativa, fila, temporizador, turno perdido e pausas), destaque do personagem ativo e contagem regressiva na HUD. Pode ser testado antes dos inimigos existirem, com combatentes de teste.
