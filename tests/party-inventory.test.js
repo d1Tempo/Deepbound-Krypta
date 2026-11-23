@@ -33,6 +33,10 @@ async function fresh(selected) {
 const valid = i => CharacterSchema.validate(PartyState.getMember(i).character).ok;
 
 (async function () {
+  // Equipe ainda carregando: nada é entregue e o motivo é claro
+  eq('sem equipe: chave não é entregue', PI.receive('key_iron').reason, 'no_party');
+  eq('sem equipe: moeda não é entregue', PI.receiveCoin().reason, 'no_party');
+
   // Equipe padrão: 0 Durgan, 1 Helga, 2 Sylvar, 3 Aelindra
   await fresh(0);
   eq('bolsas iniciais', [0, 1, 2, 3].map(i => ids(i)), [[], ['potion_healing'], [], ['dagger']]);
