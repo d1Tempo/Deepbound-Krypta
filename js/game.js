@@ -17,7 +17,8 @@ function loadMap(mapIndex) {
   player.keys.gold = false;
   player.keysUsed.iron = false;
   player.keysUsed.gold = false;
-  playerInventoryItems = [];
+  // Chaves e Mapa Encantado são de cada mapa: somem das bolsas ao trocar de mapa (moedas e armas ficam).
+  PartyInventory.clearMapBound();
   isEnchantedMapOpen = false;
   isMapBurning = false;
   syncEnchantedMapModalDOM();
@@ -45,6 +46,7 @@ function loadMap(mapIndex) {
 function resetGame() {
   player.steps = 0;
   player.coins = 0;
+  PartyInventory.clearCoins();
   loadMap(1);
   showToast(`Nova Masmorra gerada: ${currentTheme.name}!`, 'info');
 }
@@ -57,7 +59,7 @@ function teleportNearGoal() {
   player.keys.gold = false;
   player.keysUsed.iron = true;
   player.keysUsed.gold = true;
-  playerInventoryItems = [];
+  PartyInventory.clearMapBound();
   updateInventoryHUD();
 
   const preDoorY = GOAL_POS.y === 2 ? 4 : 31;
