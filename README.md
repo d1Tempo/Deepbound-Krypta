@@ -24,7 +24,7 @@ css/style.css       Todo o visual da interface
 css/party.css       Visual da equipe (HUD 2 × 2)
 assets/             Texturas e imagens PNG (walls, floors, ceilings, doors, buttons, keys, objects, portraits, items, ui)
 docs/               Documento de design
-tests/              Testes automáticos (node tests/party.test.js, party-hud.test.js e party-inventory.test.js)
+tests/              Testes automáticos (party, party-hud, party-inventory, party-bag-hud e integration; veja "Como testar")
 js/
   core/             Constantes, temas e variáveis globais do mapa; utilidades
   dungeon/          Geração procedural, portas/botões, variações de textura
@@ -314,6 +314,7 @@ No Safari, o recarregamento forçado é Shift + clique no botão de recarregar (
 - Cada personagem tem uma **silhueta de equipamento** com slots nas partes do corpo.
 - **Não há inventário geral:** cada personagem tem a sua bolsa, e a janela de inventário mostra a do personagem selecionado.
 - Um item guardado é o **id** ou uma **instância** `{ id, count?, durability? }` (moedas empilham até 99 por pilha).
+- A janela de inventário mostra a **bolsa do personagem selecionado**, com o título "Inventário | Nome" (implementado).
 - **Mapa e chaves** vão para a bolsa do personagem **selecionado**, que tem uma **borda branca** no slot (já implementado).
 - A **primeira moeda** segue essa mesma regra; **as moedas seguintes vão sempre para o personagem que já tem a primeira**.
 - O que o personagem segura **pode ser trocado** por itens encontrados, e as armas **desgastam e quebram** (regras de desgaste em proposta, na diretriz 13).
@@ -361,7 +362,11 @@ PartyState.setVitals(0, 5, 10)   // posição 0 (frente-esquerda): Vida 5, Fadig
 PartyState.setVitals(0, 99, 99)  // volta ao máximo (os valores são limitados ao máximo)
 ```
 
-### Como testar as bolsas
+### Como testar as bolsas e a integração
+
+Todos os testes: `node tests/party.test.js`, `node tests/party-hud.test.js`, `node tests/party-inventory.test.js`, `node tests/party-bag-hud.test.js` e `node tests/integration.test.js`. Os de bolsa-janela e integração conferem a janela "Inventário | Nome", o clique no Mapa, a troca de armas, a coleta de chaves, Mapa e moedas, o uso da chave na fechadura, a troca de mapa e o zerar das moedas, usando os arquivos reais `state.js`, `interactions.js` e `game.js`.
+
+Testes das bolsas (lógica):
 
 `node tests/party-inventory.test.js` confere: destino das chaves, do Mapa e das moedas (inclusive com bolsas cheias e o limite de 99), o consumo de uma chave, a limpeza ao trocar de mapa, a troca de armas e escudos (arma de duas mãos, falta de espaço sem alterar nada) e que os dados continuam válidos depois de cada operação. Esses testes verificam também que cada ícone do catálogo existe em `assets/`.
 
@@ -374,7 +379,8 @@ js/party/
   character-presets.js    Os 6 personagens fixos (dados puros)                                          [pronto]
   character-provider.js   PresetProvider (pronto) e NftProvider (futuro), carregamento assíncrono
   party-state.js          A equipe: 4 posições, personagem selecionado, estado de carga e Vida/Fadiga atuais [pronto; ficha na etapa 5]
-  party-inventory.js      Bolsas individuais: destino de chaves, Mapa e moedas, troca de armas e escudos           [pronto: lógica testada; falta ligar ao jogo]
+  party-inventory.js      Bolsas individuais: destino de chaves, Mapa e moedas, troca de armas e escudos           [pronto e ligado ao jogo]
+  party-bag-hud.js        Janela "Inventário | Nome": bolsa do personagem selecionado, clique no Mapa e troca de armas [pronto]
   party-hud.js            Desenho dos 4 slots (rosto, nome, barras, mãos) e seleção com borda branca       [pronto; arrastar e duplo clique na etapa 5]
   character-sheet.js      Janela de atributos, habilidades, proficiências e estatísticas
   equipment-view.js       Silhueta de equipamento: slots do corpo, arrastar peças, destaque dos slots compatíveis
@@ -398,7 +404,7 @@ As regras (`character-rules.js`) e o formato (`character-schema.js`) são funç�
 1. **Diretrizes** (esta seção) e decisão dos pontos em aberto.
 2. **Camada de dados:** formato dos personagens e dos itens, regras do SRD (por nível, dentro da faixa suportada), proficiências, os 6 personagens, os itens básicos e os provedores predefinidos, com testes automáticos. **Estado: personagens, regras (níveis 1 a 5), itens-base, equipamento e `PresetProvider` prontos e testados; faltam o formato e o provedor de itens NFT (etapa 11).**
 3. **HUD 2 × 2 estático:** os 4 slots (rosto, nome, barras, mãos), sem interação. Aqui a janela de personagem antiga sai de cena. **Estado: pronto. A janela antiga continua no código, escondida por CSS (`css/party.css`), até a etapa 7.**
-4. **Seleção e bolsa por personagem.** *Pronto:* a seleção do personagem, com borda branca; a **lógica das bolsas** (`party-inventory.js`: Mapa e chaves no selecionado, moedas no portador, troca de armas e escudos, limpeza ao trocar de mapa), testada. *Falta (etapa 4b-2):* ligar tudo ao jogo antigo (`interactions.js`, `game.js`, `ui/hud.js`, `index.html`), com a janela "Inventário | Nome" e a troca de armas por clique na bolsa. Mexe no código antigo do inventário, das chaves e das moedas.
+4. **Seleção e bolsa por personagem.** *Pronto:* seleção com borda branca; bolsas individuais ligadas ao jogo (`party-inventory.js`, `party-bag-hud.js`, `interactions.js`, `game.js`, `ui/hud.js`): Mapa e chaves vão para o selecionado, as moedas para o portador, a janela mostra "Inventário | Nome", e clicar numa arma ou escudo da bolsa troca o que o personagem segura. *Falta:* guardar na bolsa o que está na mão pela interface (hoje só existe a lógica), beber poções, e o desgaste das armas.
 5. **Arrastar para trocar de posição** (os personagens trocam de lugar na formação, fora de batalha) e **duplo clique para abrir a ficha**.
 6. **Silhueta de equipamento:** slots do corpo e arrastar peças para equipar.
 7. **Remoção do código antigo** (`player/character.js`, as funções de personagem em `ui/hud.js`, a janela antiga no `index.html` e o CSS correspondente).
