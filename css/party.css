@@ -260,3 +260,22 @@ body.player-gui .workspace {
   font-weight: 700;
   color: #f2cc60;
 }
+
+/* Janela de inventário (bolsa do personagem selecionado): ícones de pixel art sem suavização; armas e escudos são clicáveis. */
+.inv-slot img.pixel-icon {
+  image-rendering: pixelated;
+}
+
+.inv-slot.equippable {
+  cursor: pointer;
+}
+
+.inv-slot.equippable:hover {
+  border-color: #6b5a2e;
+}
+
+.inv-slot-fallback {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #8b949e;
+}
