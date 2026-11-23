@@ -1,6 +1,6 @@
 /**
  * js/player/interactions.js
- * Interações: coletar chaves/mapa, ativar botões e alavancas, animação de portas,
+ * Interações: coletar chaves/mapa/moedas (para a bolsa do personagem selecionado), ativar botões e alavancas, animação de portas,
  * abrir/fechar a visão do Mapa Encantado.
  */
 
@@ -32,40 +32,47 @@ function closeEnchantedMapView(silent = false) {
   if (!silent && typeof renderFirstPerson === 'function') renderFirstPerson();
 }
 
+// Mensagem para quando um item não pode ser guardado (veja PartyInventory.receive e receiveCoin).
+function bagFailureMessage(reason, itemName) {
+  if (reason === 'bags_full') return `As bolsas de toda a equipe estão cheias: não há espaço para pegar ${itemName}.`;
+  if (reason === 'no_party') return 'A equipe ainda está carregando. Tente de novo em um instante.';
+  if (reason === 'coin_limit') return `A pilha de moedas está cheia: o limite é ${MAX_COINS}.`;
+  return 'Não foi possível guardar o item.';
+}
+
+// Chaves e Mapa vão para a bolsa do personagem selecionado (ou o próximo da formação com espaço).
 function collectKeyByClick(k) {
   if (!k || k.collected) return;
-  k.collected = true;
-  if (!playerInventoryItems.some(item => item.id === k.id)) {
-    playerInventoryItems.push({
-      id: k.id,
-      type: k.type,
-      name: k.name
-    });
+  const result = PartyInventory.receive(ItemCatalog.idForFloorType(k.type));
+  if (!result.ok) {
+    showToast(bagFailureMessage(result.reason, k.name), 'warn');
+    return;
   }
+  k.collected = true;
+  const who = PartyState.getMember(result.memberIndex).character.identity.name;
   if (k.type === 'iron') {
-    player.keys.iron = true;
-    showToast('🗝️ Você pegou a Chave de Ferro do chão e a guardou no inventário.', 'info');
+    showToast(`🗝️ ${who} pegou a Chave de Ferro do chão e a guardou na bolsa.`, 'info');
   } else if (k.type === 'gold') {
-    player.keys.gold = true;
-    showToast('🔑 Você pegou a Chave de Ouro do chão e a guardou no inventário.', 'warn');
+    showToast(`🔑 ${who} pegou a Chave de Ouro do chão e a guardou na bolsa.`, 'warn');
   } else if (k.type === 'map') {
-    player.hasEnchantedMap = true;
     revealHalfDungeonFromEnchantedMap();
     updateFogOfWar();
-    showToast('📜 Você pegou o Mapa Encantado (com metade da masmorra desvendada)! Clique nele no inventário para abri-lo.', 'portal');
+    showToast(`📜 ${who} pegou o Mapa Encantado (com metade da masmorra desvendada)! Clique nele na bolsa para abri-lo.`, 'portal');
   }
   updateInventoryHUD();
 }
 
+// A primeira moeda vai para o personagem selecionado; as seguintes vão sempre para quem já tem a pilha.
 function collectCoinByClick(c) {
   if (!c || c.collected) return;
-  if (player.coins >= MAX_COINS) {
-    showToast(`Sua bolsa está cheia: você não pode carregar mais de ${MAX_COINS} moedas.`, 'warn');
+  const result = PartyInventory.receiveCoin(1);
+  if (!result.ok) {
+    showToast(bagFailureMessage(result.reason, 'o Dobrão de Ouro'), 'warn');
     return;
   }
   c.collected = true;
-  player.coins = Math.min(MAX_COINS, player.coins + 1);
-  showToast('🪙 Você pegou um Dobrão de Ouro do chão.', 'warn');
+  const who = PartyState.getMember(result.memberIndex).character.identity.name;
+  showToast(`🪙 ${who} guardou um Dobrão de Ouro na bolsa.`, 'warn');
   updateInventoryHUD();
 }
 
@@ -104,7 +111,7 @@ function activateWallButton(btn, door) {
     
     closeEnchantedMapView(true);
     let transitionDelay = 320;
-    if (player.hasEnchantedMap && playerInventoryItems.some(item => item.type === 'map')) {
+    if (PartyInventory.has('enchanted_map')) {
       isMapBurning = true;
       updateInventoryHUD();
       showToast('🔥 O Mapa Encantado queimou espontaneamente em chamas ao final desta masmorra!', 'warn');
@@ -162,16 +169,14 @@ function activateWallButton(btn, door) {
   if (typeof playDoorSound === 'function') playDoorSound(door.visualStyle);
 
   if (wasLockedWithKey) {
-    // Assim que o jogador usa a chave para abrir sua respectiva porta, a chave desaparece do inventário
+    // Assim que o jogador usa a chave para abrir sua respectiva porta, a chave desaparece da bolsa
     // (ficando encaixada na fechadura da porta aberta)
     if (door.lockType === 'iron') {
-      player.keys.iron = false;
+      PartyInventory.consume('key_iron');
       player.keysUsed.iron = true;
-      playerInventoryItems = playerInventoryItems.filter(item => item.type !== 'iron');
     } else if (door.lockType === 'gold') {
-      player.keys.gold = false;
+      PartyInventory.consume('key_gold');
       player.keysUsed.gold = true;
-      playerInventoryItems = playerInventoryItems.filter(item => item.type !== 'gold');
     }
     updateInventoryHUD();
   }
