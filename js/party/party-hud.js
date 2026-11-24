@@ -4,7 +4,8 @@
  * Cada slot mostra rosto, nome, barras de Vida e Fadiga (atual / máximo) e as duas mãos.
  * Todo texto é inserido com textContent (nunca innerHTML), pois nomes poderão vir de fontes externas (NFTs).
  * Mão livre mostra a silhueta de uma mão; arma de duas mãos ocupa um slot largo (as duas mãos).
- * Clicar no rosto seleciona o personagem (borda branca). As mãos ainda não reagem a cliques. Depende de PartyState e ItemCatalog.
+ * Clicar no rosto seleciona o personagem (borda branca). Botão direito numa mão com item guarda o item na bolsa
+ * (o clique normal da mão fica reservado para a ação do item no combate, ainda não implementada). Depende de PartyState e ItemCatalog.
  */
 const PartyHud = (function () {
   const ROW_LABELS = ['Frente', 'Trás'];
@@ -74,15 +75,36 @@ const PartyHud = (function () {
     return img;
   }
 
+  function toast(message, kind) {
+    if (typeof showToast === 'function') showToast(message, kind);
+  }
+
+  // Botão direito numa mão com item: guarda o item na bolsa do personagem.
+  function stowFromHand(memberIndex, handId, item) {
+    const member = PartyState.getMember(memberIndex);
+    if (!member || typeof PartyInventory === 'undefined') return;
+    const name = member.character.identity.name;
+    const result = PartyInventory.unequip(memberIndex, handId);
+    if (result.ok) toast(name + ' guardou ' + item.name + ' na bolsa.', 'info');
+    else if (result.reason === 'bag_full') toast('A bolsa de ' + name + ' está cheia: não há espaço para guardar ' + item.name + '.', 'warn');
+  }
+  function onRightClick(node, memberIndex, handId, item) {
+    node.addEventListener('contextmenu', ev => {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      stowFromHand(memberIndex, handId, item);
+    });
+  }
+
   // Mão: o item segurado ou, se estiver livre, a silhueta da mão correspondente (direita ou esquerda).
-  function buildHand(handId, itemId) {
+  function buildHand(memberIndex, handId, itemId) {
     const item = ItemCatalog.resolve(itemId);
     const hand = el('div', 'party-hand' + (item ? ' filled' : ''));
     hand.setAttribute('data-hand', handId);
     hand.appendChild(el('span', 'party-hand-label', HAND_LABELS[handId]));
     if (item) {
       hand.appendChild(buildItemIcon(item));
-      hand.setAttribute('title', HAND_NAMES[handId] + ': ' + item.name);
+      hand.setAttribute('title', HAND_NAMES[handId] + ': ' + item.name + ' (botão direito: guardar na bolsa)');
+      onRightClick(hand, memberIndex, handId, item);
     } else {
       const sil = el('img', 'party-hand-empty');
       sil.alt = '';
@@ -94,13 +116,14 @@ const PartyHud = (function () {
   }
 
   // Arma de duas mãos: um único slot largo que ocupa as duas mãos.
-  function buildTwoHandedSlot(item) {
+  function buildTwoHandedSlot(memberIndex, item) {
     const hand = el('div', 'party-hand filled two-handed');
     hand.setAttribute('data-hand', 'both');
     hand.appendChild(el('span', 'party-hand-label', 'D + E'));
     hand.appendChild(el('span', 'party-hand-badge', '2 mãos'));
     hand.appendChild(buildItemIcon(item));
-    hand.setAttribute('title', 'Duas mãos: ' + item.name);
+    hand.setAttribute('title', 'Duas mãos: ' + item.name + ' (botão direito: guardar na bolsa)');
+    onRightClick(hand, memberIndex, 'right', item);
     return hand;
   }
 
@@ -143,10 +166,10 @@ const PartyHud = (function () {
     const rightItem = ItemCatalog.resolve(ch.progress.hands.right);
     const leftItem = ItemCatalog.resolve(ch.progress.hands.left);
     if (rightItem && rightItem.twoHanded && !leftItem) {
-      hands.appendChild(buildTwoHandedSlot(rightItem));
+      hands.appendChild(buildTwoHandedSlot(index, rightItem));
     } else {
-      hands.appendChild(buildHand('right', ch.progress.hands.right));
-      hands.appendChild(buildHand('left', ch.progress.hands.left));
+      hands.appendChild(buildHand(index, 'right', ch.progress.hands.right));
+      hands.appendChild(buildHand(index, 'left', ch.progress.hands.left));
     }
     slot.appendChild(hands);
     return slot;
