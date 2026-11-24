@@ -8,7 +8,7 @@ const path = require('path');
 
 const root = path.join(__dirname, '..', 'js');
 const files = ['items/item-catalog.js', 'items/equipment-rules.js', 'party/character-rules.js', 'party/character-schema.js',
-  'party/character-presets.js', 'party/character-provider.js', 'party/party-state.js', 'party/party-hud.js'];
+  'party/character-presets.js', 'party/character-provider.js', 'party/party-state.js', 'party/party-inventory.js', 'party/party-hud.js'];
 
 // DOM mínimo: innerHTML é proibido (lança erro), pois o HUD deve usar apenas textContent.
 const domStub = `
@@ -28,10 +28,13 @@ class El {
   find(pred, out = []) { if (pred(this)) out.push(this); this.children.forEach(c => c.find(pred, out)); return out; }
 }
 const document = { createElement: tag => new El(tag), getElementById: () => null };
+const toasts = [];
+function showToast(msg, kind) { toasts.push({ msg, kind }); }
+const player = { keys: { iron: false, gold: false }, hasEnchantedMap: false, coins: 0 };
 `;
 const source = domStub + files.map(f => fs.readFileSync(path.join(root, f), 'utf8')).join('\n') +
-  '\nreturn { El, PartyState, PartyHud, CharacterProviders };';
-const { El, PartyState, PartyHud } = new Function(source)();
+  '\nreturn { El, PartyState, PartyHud, CharacterProviders, toasts };';
+const { El, PartyState, PartyHud, CharacterProviders, toasts } = new Function(source)();
 
 let passed = 0;
 const failures = [];
@@ -67,10 +70,10 @@ const byClass = (node, cls) => node.find(n => (' ' + n.className + ' ').includes
   eq('Durgan: um único slot largo para o montante', durganHands.length, 1);
   eq('Durgan: slot de duas mãos', [durganHands[0].className.includes('two-handed'), durganHands[0].attrs['data-hand']], [true, 'both']);
   eq('Durgan: ícone do montante e rótulo "2 mãos"', [byClass(durganHands[0], 'party-hand-icon')[0].src, byClass(durganHands[0], 'party-hand-badge')[0].textContent], ['assets/items/greatsword.png', '2 mãos']);
-  check('título explica as duas mãos', durganHands[0].attrs.title === 'Duas mãos: Montante', durganHands[0].attrs.title);
+  check('título explica as duas mãos', durganHands[0].attrs.title === 'Duas mãos: Montante (botão direito: guardar na bolsa)', durganHands[0].attrs.title);
   const helgaHands = byClass(slots[1], 'party-hand');
   eq('Helga: ícones da maça e do escudo', helgaHands.map(h => byClass(h, 'party-hand-icon')[0].src), ['assets/items/mace.png', 'assets/items/shield.png']);
-  check('título da mão traz o nome do item', helgaHands[1].attrs.title === 'Mão esquerda: Escudo', helgaHands[1].attrs.title);
+  check('título da mão traz o nome do item e a dica', helgaHands[1].attrs.title === 'Mão esquerda: Escudo (botão direito: guardar na bolsa)', helgaHands[1].attrs.title);
   const sylvarHands = byClass(slots[2], 'party-hand');
   eq('Sylvar: rapieira e adaga', sylvarHands.map(h => byClass(h, 'party-hand-icon')[0].src), ['assets/items/rapier.png', 'assets/items/dagger.png']);
   const aelHands = byClass(slots[3], 'party-hand');
@@ -88,6 +91,30 @@ const byClass = (node, cls) => node.find(n => (' ' + n.className + ' ').includes
   icon.fire('error');
   eq('ícone que falha ao carregar mostra as 3 primeiras letras', byClass(byClass(byClass(rootEl, 'party-slot')[1], 'party-hand')[0], 'party-hand-fallback').map(n => n.textContent), ['MAÇ']);
   PartyHud.render();
+
+  // Botão direito numa mão com item: guarda o item na bolsa
+  const rc = (hand) => { let prevented = false; hand.fire('contextmenu', { preventDefault() { prevented = true; } }); return prevented; };
+  const handsOf = i => byClass(byClass(rootEl, 'party-slot')[i], 'party-hand');
+  const bagOf = i => PartyState.getMember(i).character.progress.inventory;
+  toasts.length = 0;
+  check('mão livre não tem menu de botão direito', handsOf(3)[1].listeners.contextmenu === undefined);
+  const shieldHand = handsOf(1)[1];
+  eq('botão direito no escudo da Helga: o menu do navegador é bloqueado', rc(shieldHand), true);
+  eq('o escudo sai da mão e vai para a bolsa', [PartyState.getMember(1).character.progress.hands.left, bagOf(1)], [null, ['potion_healing', 'shield']]);
+  eq('aviso de quem guardou o quê', toasts[0], { msg: 'Helga Forjaluz guardou Escudo na bolsa.', kind: 'info' });
+  eq('a mão esquerda passa a mostrar a silhueta', byClass(handsOf(1)[1], 'party-hand-empty')[0].src, 'assets/ui/hand_left.png');
+  eq('Classe de Armadura da Helga sem o escudo (brunea 14 + DES 0)', CharacterProviders.build(PartyState.getMember(1).character).derived.armorClass, 14);
+  const gsHand = handsOf(0)[0];
+  rc(gsHand);
+  eq('botão direito no slot de duas mãos guarda o montante', [PartyState.getMember(0).character.progress.hands.right, bagOf(0)], [null, ['greatsword']]);
+  eq('o slot largo some e voltam as duas mãos livres', [handsOf(0).length, handsOf(0).map(h => byClass(h, 'party-hand-empty').length)], [2, [1, 1]]);
+  while (bagOf(2).length < 20) bagOf(2).push('dagger');
+  PartyState.touch();
+  toasts.length = 0;
+  rc(handsOf(2)[0]);
+  eq('bolsa cheia: avisa e o item continua na mão', [toasts[0] && toasts[0].kind, PartyState.getMember(2).character.progress.hands.right], ['warn', 'rapier']);
+  check('o aviso da bolsa cheia cita o personagem e o item', toasts[0].msg === 'A bolsa de Sylvar Ventofino está cheia: não há espaço para guardar Rapieira.', toasts[0].msg);
+  await PartyState.init();   // volta à equipe inicial para os testes seguintes
 
   // Seleção: o primeiro personagem começa selecionado (borda branca); clicar ou usar Enter/Espaço no rosto seleciona
   const isSel = n => n.className.split(' ').includes('selected');
