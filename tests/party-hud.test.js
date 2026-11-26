@@ -8,7 +8,7 @@ const path = require('path');
 
 const root = path.join(__dirname, '..', 'js');
 const files = ['items/item-catalog.js', 'items/equipment-rules.js', 'party/character-rules.js', 'party/character-schema.js',
-  'party/character-presets.js', 'party/character-provider.js', 'party/party-state.js', 'party/party-inventory.js', 'party/party-hud.js'];
+  'party/character-presets.js', 'party/character-provider.js', 'party/party-state.js', 'party/party-inventory.js', 'party/character-sheet.js', 'party/party-hud.js'];
 
 // DOM mínimo: innerHTML é proibido (lança erro), pois o HUD deve usar apenas textContent.
 const domStub = `
@@ -25,16 +25,24 @@ class El {
   getAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k) ? this.attrs[k] : null; }
   addEventListener(t, fn) { (this.listeners[t] = this.listeners[t] || []).push(fn); }
   fire(t, ev) { (this.listeners[t] || []).forEach(fn => fn(ev)); }
+  getBoundingClientRect() { return this.rect || { left: 0, top: 0, right: 0, bottom: 0 }; }
   find(pred, out = []) { if (pred(this)) out.push(this); this.children.forEach(c => c.find(pred, out)); return out; }
 }
-const document = { createElement: tag => new El(tag), getElementById: () => null };
+const docListeners = {};
+const document = {
+  createElement: tag => new El(tag), getElementById: () => null, body: new El('body'),
+  addEventListener(t, fn) { (docListeners[t] = docListeners[t] || []).push(fn); },
+  removeEventListener(t, fn) { docListeners[t] = (docListeners[t] || []).filter(f => f !== fn); }
+};
+function fireDoc(t, ev) { (docListeners[t] || []).slice().forEach(fn => fn(ev)); }
+function docCount(t) { return (docListeners[t] || []).length; }
 const toasts = [];
 function showToast(msg, kind) { toasts.push({ msg, kind }); }
 const player = { keys: { iron: false, gold: false }, hasEnchantedMap: false, coins: 0 };
 `;
 const source = domStub + files.map(f => fs.readFileSync(path.join(root, f), 'utf8')).join('\n') +
-  '\nreturn { El, PartyState, PartyHud, CharacterProviders, toasts };';
-const { El, PartyState, PartyHud, CharacterProviders, toasts } = new Function(source)();
+  '\nreturn { El, PartyState, PartyHud, CharacterProviders, toasts, document, fireDoc, docCount };';
+const { El, PartyState, PartyHud, CharacterProviders, toasts, document, fireDoc, docCount } = new Function(source)();
 
 let passed = 0;
 const failures = [];
@@ -47,7 +55,9 @@ const byClass = (node, cls) => node.find(n => (' ' + n.className + ' ').includes
 
 (async function () {
   const rootEl = new El('div');
-  check('init encontra a raiz', PartyHud.init(rootEl) === true);
+  const titleEl = new El('div');
+  titleEl.textContent = 'Equipe';
+  check('init encontra a raiz', PartyHud.init(rootEl, titleEl) === true);
   check('estado inicial mostra "Carregando"', rootEl.textContent.includes('Carregando a equipe'));
   await new Promise(r => setTimeout(r, 30));
 
@@ -115,6 +125,97 @@ const byClass = (node, cls) => node.find(n => (' ' + n.className + ' ').includes
   eq('bolsa cheia: avisa e o item continua na mão', [toasts[0] && toasts[0].kind, PartyState.getMember(2).character.progress.hands.right], ['warn', 'rapier']);
   check('o aviso da bolsa cheia cita o personagem e o item', toasts[0].msg === 'A bolsa de Sylvar Ventofino está cheia: não há espaço para guardar Rapieira.', toasts[0].msg);
   await PartyState.init();   // volta à equipe inicial para os testes seguintes
+
+  // --- Arrastar o rosto para trocar de lugar
+  const layout = () => byClass(rootEl, 'party-slot').forEach((n, i) => { const c = i % 2, r = Math.floor(i / 2); n.rect = { left: c * 100, top: r * 100, right: c * 100 + 90, bottom: r * 100 + 90 }; });
+  const names = () => byClass(rootEl, 'party-name').map(n => n.textContent.split(' ')[0]);
+  const faceOf = i => byClass(byClass(rootEl, 'party-slot')[i], 'party-portrait')[0];
+  const down = (i, ev) => faceOf(i).fire('pointerdown', Object.assign({ button: 0, clientX: 150, clientY: 150 }, ev || {}));
+  await PartyState.init();
+  layout();
+  eq('ordem inicial', names(), ['Durgan', 'Helga', 'Sylvar', 'Aelindra']);
+  toasts.length = 0;
+  down(3);
+  eq('ao pressionar, só aguarda o movimento (ouvintes no documento)', [docCount('pointermove'), docCount('pointerup'), document.body.children.length], [1, 1, 0]);
+  fireDoc('pointermove', { clientX: 152, clientY: 151 });
+  eq('movimento pequeno não começa o arrasto', document.body.children.length, 0);
+  fireDoc('pointermove', { clientX: 40, clientY: 40 });
+  const ghost = document.body.children[0];
+  eq('passando do limite, aparece o rosto que acompanha o ponteiro', [document.body.children.length, ghost.style.left, ghost.style.top, ghost.src], [1, '12px', '12px', 'assets/portraits/aelindra.png']);
+  eq('o slot de origem fica esmaecido e o de destino é destacado', [byClass(rootEl, 'party-slot')[3].className.includes('dragging'), byClass(rootEl, 'party-slot')[0].className.includes('drop-target'), byClass(rootEl, 'party-slot')[3].className.includes('drop-target')], [true, true, false]);
+  fireDoc('pointerup', { clientX: 40, clientY: 40 });
+  eq('soltar sobre outro slot troca os dois de lugar', names(), ['Aelindra', 'Helga', 'Sylvar', 'Durgan']);
+  eq('aviso da troca', toasts[0], { msg: 'Aelindra Lúmen e Durgan Pedraforte trocaram de lugar.', kind: 'info' });
+  eq('o rosto e os ouvintes foram removidos', [document.body.children.length, docCount('pointermove'), docCount('pointerup'), docCount('pointercancel')], [0, 0, 0, 0]);
+  eq('a seleção acompanha o personagem (Durgan agora na posição 3)', [PartyState.getSelectedIndex(), PartyState.getSelectedMember().character.identity.name], [3, 'Durgan Pedraforte']);
+  eq('a borda branca mudou de posição', byClass(rootEl, 'party-slot').map(n => n.className.split(' ').includes('selected')), [false, false, false, true]);
+  eq('a bolsa e a Classe de Armadura seguem o personagem (Durgan ainda tem o montante)', PartyState.getMember(3).character.progress.hands.right, 'greatsword');
+  layout();
+  byClass(byClass(rootEl, 'party-slot')[1], 'party-slot-top')[0].fire('click');
+  eq('o clique logo depois do arrasto não seleciona', PartyState.getSelectedIndex(), 3);
+  await new Promise(r => setTimeout(r, 15));
+  byClass(byClass(rootEl, 'party-slot')[1], 'party-slot-top')[0].fire('click');
+  eq('passado um instante, clicar volta a selecionar', PartyState.getSelectedIndex(), 1);
+
+  // arrastos que não trocam nada
+  layout();
+  toasts.length = 0;
+  down(2); fireDoc('pointermove', { clientX: 152, clientY: 152 }); fireDoc('pointerup', { clientX: 152, clientY: 152 });
+  eq('apenas um clique: nada é arrastado nem trocado', [names(), document.body.children.length, docCount('pointermove')], [['Aelindra', 'Helga', 'Sylvar', 'Durgan'], 0, 0]);
+  down(2); fireDoc('pointermove', { clientX: 600, clientY: 600 }); fireDoc('pointerup', { clientX: 600, clientY: 600 });
+  eq('soltar fora dos slots não troca', [names(), document.body.children.length], [['Aelindra', 'Helga', 'Sylvar', 'Durgan'], 0]);
+  down(2); fireDoc('pointermove', { clientX: 20, clientY: 130 }); fireDoc('pointermove', { clientX: 30, clientY: 140 }); fireDoc('pointerup', { clientX: 30, clientY: 140 });
+  eq('soltar no próprio slot não troca', names(), ['Aelindra', 'Helga', 'Sylvar', 'Durgan']);
+  down(2, { button: 2 });
+  eq('botão direito não inicia arrasto', [docCount('pointermove'), docCount('pointerup')], [0, 0]);
+  down(2); fireDoc('pointermove', { clientX: 40, clientY: 40 }); fireDoc('pointercancel', {});
+  eq('cancelar o arrasto limpa tudo e não troca', [names(), document.body.children.length, docCount('pointerup'), byClass(rootEl, 'party-slot').filter(n => n.className.includes('dragging')).length], [['Aelindra', 'Helga', 'Sylvar', 'Durgan'], 0, 0, 0]);
+  PartyState.setBattle(true);
+  toasts.length = 0;
+  down(2); fireDoc('pointermove', { clientX: 40, clientY: 40 });
+  eq('em batalha o arrasto é recusado com aviso', [document.body.children.length, docCount('pointerup'), toasts[0] && toasts[0].msg], [0, 0, 'Não é possível trocar de posição durante a batalha.']);
+  eq('em batalha a troca direta também é recusada', [PartyState.canSwap(), PartyState.swap(0, 1), names()], [false, false, ['Aelindra', 'Helga', 'Sylvar', 'Durgan']]);
+  PartyState.setBattle(false);
+  const selEvents = [];
+  PartyState.onSelect(() => selEvents.push(PartyState.getSelectedIndex()));
+  PartyState.select(0);
+  eq('API de troca: posições inválidas', [PartyState.swap(1, 1), PartyState.swap(0, 9), PartyState.swap(-1, 2), PartyState.swap(1.5, 2), PartyState.swap('a', 2), PartyState.swap(null, 2)], [false, false, false, false, false, false]);
+  eq('API de troca: válida (selecionado em 0 vai para 2)', [PartyState.swap(0, 2), PartyState.getSelectedIndex(), names()], [true, 2, ['Sylvar', 'Helga', 'Aelindra', 'Durgan']]);
+  eq('a troca avisa a seleção só quando ela mudou de posição', selEvents, [0, 2]);
+  PartyState.swap(1, 3);
+  eq('trocar outros dois não mexe na seleção', [PartyState.getSelectedIndex(), selEvents.length], [2, 2]);
+  await PartyState.init();
+  await new Promise(r => setTimeout(r, 15));   // o aviso "acabou de arrastar" se desliga logo depois do arrasto
+
+  // --- Ficha (duplo clique), no lugar dos 4 slots
+  layout();
+  const topOf = i => byClass(byClass(rootEl, 'party-slot')[i], 'party-slot-top')[0];
+  topOf(2).fire('dblclick');
+  eq('duplo clique abre a ficha e seleciona o personagem', [PartyState.getSheetIndex(), PartyState.getSelectedIndex()], [2, 2]);
+  eq('a ficha ocupa o lugar dos 4 slots', [byClass(rootEl, 'party-slot').length, byClass(rootEl, 'sheet').length, rootEl.className.includes('sheet-open')], [0, 1, true]);
+  eq('o título do painel muda', titleEl.textContent, 'Ficha do personagem');
+  eq('a ficha é de quem recebeu o duplo clique', byClass(rootEl, 'sheet-name')[0].textContent, 'Sylvar Ventofino');
+  eq('com a ficha aberta não se troca de lugar', [PartyState.canSwap(), PartyState.swap(0, 1)], [false, false]);
+  byClass(rootEl, 'sheet-mini')[0].fire('click');
+  eq('clicar na miniatura fecha a ficha e volta os 4 slots', [PartyState.getSheetIndex(), byClass(rootEl, 'party-slot').length, titleEl.textContent, rootEl.className.includes('sheet-open')], [null, 4, 'Equipe', false]);
+  topOf(0).fire('dblclick');
+  byClass(rootEl, 'sheet-close')[0].fire('click');
+  eq('o X também fecha', [PartyState.getSheetIndex(), byClass(rootEl, 'party-slot').length], [null, 4]);
+  topOf(1).fire('dblclick');
+  fireDoc('keydown', { key: 'a' });
+  check('outra tecla não fecha', PartyState.getSheetIndex() === 1);
+  fireDoc('keydown', { key: 'Escape' });
+  eq('Esc fecha a ficha', [PartyState.getSheetIndex(), byClass(rootEl, 'party-slot').length], [null, 4]);
+  topOf(3).fire('keydown', { key: 'Enter', shiftKey: true, preventDefault() {} });
+  eq('Shift+Enter abre a ficha pelo teclado', PartyState.getSheetIndex(), 3);
+  PartyState.closeSheet();
+  topOf(2).fire('keydown', { key: 'Enter', shiftKey: false, preventDefault() {} });
+  eq('Enter sem Shift só seleciona', [PartyState.getSheetIndex(), PartyState.getSelectedIndex()], [null, 2]);
+  eq('fechar sem ficha aberta', PartyState.closeSheet(), false);
+  eq('abrir ficha com posições inválidas', [-1, 4, 1.5, '1', null].map(v => PartyState.openSheet(v)), [false, false, false, false, false]);
+  PartyState.openSheet(0);
+  await PartyState.init();
+  eq('recarregar a equipe fecha a ficha', [PartyState.getSheetIndex(), byClass(rootEl, 'party-slot').length], [null, 4]);
 
   // Seleção: o primeiro personagem começa selecionado (borda branca); clicar ou usar Enter/Espaço no rosto seleciona
   const isSel = n => n.className.split(' ').includes('selected');
