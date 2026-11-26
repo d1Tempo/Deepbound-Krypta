@@ -4,7 +4,9 @@
  * Cada slot mostra rosto, nome, barras de Vida e Fadiga (atual / máximo) e as duas mãos.
  * Todo texto é inserido com textContent (nunca innerHTML), pois nomes poderão vir de fontes externas (NFTs).
  * Mão livre mostra a silhueta de uma mão; arma de duas mãos ocupa um slot largo (as duas mãos).
- * Clicar no rosto seleciona o personagem (borda branca). Botão direito numa mão com item guarda o item na bolsa
+ * Clicar no rosto seleciona o personagem (borda branca); duplo clique (ou Shift+Enter) abre a ficha, que ocupa o lugar
+ * dos 4 slots até ser fechada (miniatura do rosto, X ou Esc); segurar e arrastar o rosto até outro slot troca os dois de lugar
+ * (não vale em batalha). Botão direito numa mão com item guarda o item na bolsa
  * (o clique normal da mão fica reservado para a ação do item no combate, ainda não implementada). Depende de PartyState e ItemCatalog.
  */
 const PartyHud = (function () {
@@ -13,6 +15,11 @@ const PartyHud = (function () {
   const HAND_NAMES = { right: 'Mão direita', left: 'Mão esquerda' };
 
   let root = null;
+  let titleEl = null;
+  let escBound = false;
+  let drag = null;            // arrasto em andamento: { index, startX, startY, active, ghost, src }
+  let justDragged = false;    // o fim de um arrasto não conta como clique de seleção
+  const DRAG_THRESHOLD = 6;   // pixels de movimento para começar a arrastar
 
   function el(tag, className, text) {
     const e = document.createElement(tag);
@@ -127,6 +134,87 @@ const PartyHud = (function () {
     return hand;
   }
 
+  function setClass(node, cls, on) {
+    const parts = node.className.split(' ').filter(c => c && c !== cls);
+    node.className = parts.concat(on ? [cls] : []).join(' ');
+  }
+  function slotNodes() {
+    return Array.from(root.children).filter(n => n.className.split(' ').includes('party-slot'));
+  }
+  function slotIndexAt(x, y) {
+    for (const node of slotNodes()) {
+      const r = node.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return Number(node.getAttribute('data-index'));
+    }
+    return null;
+  }
+  function highlightDrop(index) {
+    for (const node of slotNodes()) {
+      const i = Number(node.getAttribute('data-index'));
+      setClass(node, 'drop-target', index !== null && i === index && i !== drag.index);
+    }
+  }
+
+  // Arrastar o rosto até outro slot troca os dois personagens de lugar (fora de batalha).
+  function endDrag() {
+    if (!drag) return;
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    document.removeEventListener('pointercancel', endDrag);
+    if (drag.ghost && document.body) document.body.removeChild(drag.ghost);
+    if (root) {
+      for (const node of slotNodes()) {
+        setClass(node, 'dragging', false);
+        setClass(node, 'drop-target', false);
+      }
+    }
+    drag = null;
+  }
+  function onPointerDown(ev, index, src) {
+    if (drag || (ev.button !== undefined && ev.button !== 0)) return;
+    drag = { index, startX: ev.clientX, startY: ev.clientY, active: false, ghost: null, src };
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', endDrag);
+  }
+  function onPointerMove(ev) {
+    if (!drag) return;
+    if (!drag.active) {
+      if (Math.hypot(ev.clientX - drag.startX, ev.clientY - drag.startY) < DRAG_THRESHOLD) return;
+      if (!PartyState.canSwap()) {
+        toast(PartyState.isBattle() ? 'Não é possível trocar de posição durante a batalha.' : 'Não é possível trocar de posição agora.', 'warn');
+        endDrag();
+        return;
+      }
+      drag.active = true;
+      const ghost = el('img', 'party-drag-ghost');
+      ghost.alt = '';
+      ghost.src = drag.src;
+      document.body.appendChild(ghost);
+      drag.ghost = ghost;
+      const source = slotNodes().find(n => Number(n.getAttribute('data-index')) === drag.index);
+      if (source) setClass(source, 'dragging', true);
+    }
+    drag.ghost.style.left = (ev.clientX - 28) + 'px';
+    drag.ghost.style.top = (ev.clientY - 28) + 'px';
+    highlightDrop(slotIndexAt(ev.clientX, ev.clientY));
+  }
+  function onPointerUp(ev) {
+    if (!drag) return;
+    const d = drag;
+    const target = d.active ? slotIndexAt(ev.clientX, ev.clientY) : null;
+    endDrag();
+    if (!d.active) return;
+    justDragged = true;
+    setTimeout(() => { justDragged = false; }, 0);
+    if (target === null || target === d.index) return;
+    const a = PartyState.getMember(d.index);
+    const b = PartyState.getMember(target);
+    if (!a || !b) return;
+    const names = a.character.identity.name + ' e ' + b.character.identity.name;
+    if (PartyState.swap(d.index, target)) toast(names + ' trocaram de lugar.', 'info');
+  }
+
   function buildSlot(index, member) {
     const ch = member.character;
     const d = member.derived;
@@ -140,15 +228,19 @@ const PartyHud = (function () {
     top.setAttribute('tabindex', '0');
     top.setAttribute('aria-label', 'Selecionar ' + ch.identity.name);
     top.setAttribute('aria-pressed', selected ? 'true' : 'false');
-    top.setAttribute('title', 'Selecionar ' + ch.identity.name);
-    top.addEventListener('click', () => PartyState.select(index));
+    top.setAttribute('title', 'Clique: selecionar · duplo clique: abrir a ficha · segurar e arrastar o rosto: trocar de lugar');
+    top.addEventListener('click', () => { if (!justDragged) PartyState.select(index); });
+    top.addEventListener('dblclick', () => PartyState.openSheet(index));
     top.addEventListener('keydown', ev => {
       if (ev && (ev.key === 'Enter' || ev.key === ' ')) {
         if (ev.preventDefault) ev.preventDefault();
-        PartyState.select(index);
+        if (ev.shiftKey) PartyState.openSheet(index);
+        else PartyState.select(index);
       }
     });
-    top.appendChild(buildPortrait(ch.identity.name, ch.identity.portrait));
+    const portrait = buildPortrait(ch.identity.name, ch.identity.portrait);
+    portrait.addEventListener('pointerdown', ev => onPointerDown(ev, index, ch.identity.portrait));
+    top.appendChild(portrait);
     const info = el('div', 'party-info');
     info.appendChild(el('div', 'party-name', ch.identity.name));
     const cls = el('div', 'party-class', d.className + ' · Nv ' + d.level);
@@ -192,6 +284,9 @@ const PartyHud = (function () {
   function render() {
     if (!root) return;
     clear(root);
+    const sheetIndex = PartyState.getSheetIndex();
+    if (titleEl) titleEl.textContent = sheetIndex === null ? 'Equipe' : 'Ficha do personagem';
+    setClass(root, 'sheet-open', sheetIndex !== null);
     const status = PartyState.getStatus();
     if (status === 'loading' || status === 'idle') {
       root.appendChild(el('div', 'party-message', 'Carregando a equipe…'));
@@ -202,6 +297,10 @@ const PartyHud = (function () {
       return;
     }
     const members = PartyState.getMembers();
+    if (sheetIndex !== null && members[sheetIndex]) {
+      root.appendChild(CharacterSheet.build(members[sheetIndex], () => PartyState.closeSheet()));
+      return;
+    }
     for (let row = 0; row < 2; row++) {
       root.appendChild(el('div', 'party-row-label', ROW_LABELS[row]));
       for (let col = 0; col < 2; col++) {
@@ -211,8 +310,13 @@ const PartyHud = (function () {
     }
   }
 
-  function init(rootElement) {
+  function init(rootElement, titleElement) {
     root = rootElement || document.getElementById('partyGrid');
+    titleEl = titleElement || document.getElementById('partyTitle');
+    if (!escBound && document.addEventListener) {
+      escBound = true;
+      document.addEventListener('keydown', ev => { if (ev && ev.key === 'Escape') PartyState.closeSheet(); });
+    }
     if (!root) return false;
     PartyState.onChange(render);
     PartyState.onSelect(updateSelection);

@@ -3,6 +3,7 @@
  * Estado da equipe do jogador: 4 posições (frente-esquerda, frente-direita, trás-esquerda, trás-direita).
  * Guarda, para cada posição, o personagem validado e os valores derivados (veja CharacterProviders.build).
  * A interface (PartyHud) apenas lê este estado e se atualiza quando ele muda (onChange) ou quando a seleção muda (onSelect).
+ * Também controla a troca de lugar dos personagens (swap) e a ficha aberta (openSheet/closeSheet).
  * Personagem selecionado: o primeiro, ao carregar. Ele recebe o Mapa e as chaves encontrados e mostra a sua bolsa.
  * Depende de CharacterProviders.
  */
@@ -11,6 +12,8 @@ const PartyState = (function () {
   const members = new Array(SLOT_COUNT).fill(null);
   const listeners = [];
   const selectListeners = [];
+  let sheetIndex = null;       // posição cuja ficha está aberta (null = painel com os 4 slots)
+  let inBattle = false;        // em batalha, os personagens não trocam de lugar
   let selectedIndex = null;    // personagem selecionado (recebe o Mapa e as chaves, e mostra a sua bolsa)
   let status = 'idle';        // 'idle' | 'loading' | 'ready' | 'error'
   let errorMessage = '';
@@ -36,6 +39,7 @@ const PartyState = (function () {
   async function init(ids) {
     status = 'loading';
     errorMessage = '';
+    sheetIndex = null;
     notify();
     try {
       const wanted = ids || (await CharacterProviders.preset.list()).slice(0, SLOT_COUNT);
@@ -80,6 +84,54 @@ const PartyState = (function () {
     }
     return true;
   }
+  // Troca dois personagens de lugar na formação. A seleção acompanha o personagem. Não vale em batalha nem com a ficha aberta.
+  function canSwap() {
+    return status === 'ready' && !inBattle && sheetIndex === null;
+  }
+  function swap(a, b) {
+    if (!canSwap()) return false;
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a === b) return false;
+    if (a < 0 || b < 0 || a >= SLOT_COUNT || b >= SLOT_COUNT || !members[a] || !members[b]) return false;
+    const tmp = members[a];
+    members[a] = members[b];
+    members[b] = tmp;
+    const selectionMoved = selectedIndex === a || selectedIndex === b;
+    if (selectedIndex === a) selectedIndex = b;
+    else if (selectedIndex === b) selectedIndex = a;
+    notify();
+    if (selectionMoved) notifySelect();
+    return true;
+  }
+
+  // Ficha do personagem: ocupa o lugar do painel da equipe até ser fechada.
+  function openSheet(index) {
+    if (status !== 'ready' || !Number.isInteger(index) || index < 0 || index >= SLOT_COUNT || !members[index]) return false;
+    if (selectedIndex !== index) {
+      selectedIndex = index;
+      notifySelect();
+    }
+    sheetIndex = index;
+    notify();
+    return true;
+  }
+  function closeSheet() {
+    if (sheetIndex === null) return false;
+    sheetIndex = null;
+    notify();
+    return true;
+  }
+  function getSheetIndex() {
+    return sheetIndex;
+  }
+
+  // O combate (etapa futura) liga e desliga este aviso.
+  function setBattle(value) {
+    inBattle = Boolean(value);
+  }
+  function isBattle() {
+    return inBattle;
+  }
+
   function getSelectedIndex() {
     return selectedIndex;
   }
@@ -97,5 +149,5 @@ const PartyState = (function () {
     return true;
   }
 
-  return { SLOT_COUNT, init, onChange, onSelect, touch, select, getSelectedIndex, getSelectedMember, getMember, getMembers, getStatus, getError, setVitals };
+  return { SLOT_COUNT, init, onChange, onSelect, touch, canSwap, swap, openSheet, closeSheet, getSheetIndex, setBattle, isBattle, select, getSelectedIndex, getSelectedMember, getMember, getMembers, getStatus, getError, setVitals };
 })();
