@@ -279,3 +279,245 @@ body.player-gui .workspace {
   font-weight: 700;
   color: #8b949e;
 }
+
+/* Arrastar o rosto para trocar de lugar */
+.party-portrait {
+  touch-action: none;
+  cursor: grab;
+}
+
+.party-drag-ghost {
+  position: fixed;
+  width: 56px;
+  height: 56px;
+  border: 2px solid #ffffff;
+  border-radius: 6px;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 1000;
+  image-rendering: pixelated;
+}
+
+.party-slot.dragging {
+  opacity: 0.45;
+}
+
+.party-slot.drop-target {
+  border-color: #f2cc60;
+  box-shadow: 0 0 0 1px #f2cc60, 0 0 12px rgba(242, 204, 96, 0.35);
+}
+
+/* Ficha do personagem: ocupa o lugar dos 4 slots */
+.party-grid.sheet-open {
+  display: block;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sheet-mini {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  flex-shrink: 0;
+  border: 2px solid #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #06090d;
+  cursor: pointer;
+}
+
+.sheet-mini-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.sheet-mini-fallback {
+  font-weight: 700;
+  color: #f2cc60;
+}
+
+.sheet-who {
+  flex: 1;
+  min-width: 0;
+}
+
+.sheet-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f2cc60;
+  overflow-wrap: anywhere;
+}
+
+.sheet-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.sheet-close {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: 1px solid #485466;
+  border-radius: 6px;
+  background: #0b0f15;
+  color: #c9d1d9;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.sheet-close:hover {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.sheet-section {
+  background: #0b0f15;
+  border: 1px solid #262c36;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.sheet-section-title {
+  margin: 0 0 6px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #6e7681;
+}
+
+.sheet-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.sheet-chip {
+  background: #06090d;
+  border: 1px solid #262c36;
+  border-radius: 6px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sheet-chip-label {
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.sheet-chip-value {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #e6edf3;
+}
+
+.sheet-chip-hp .sheet-chip-value {
+  color: #ff7b72;
+}
+
+.sheet-chip-fp .sheet-chip-value {
+  color: #4ade80;
+}
+
+.sheet-chip-prof {
+  border-color: #6b5a2e;
+}
+
+.sheet-abilities {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.sheet-ability {
+  background: #06090d;
+  border: 1px solid #262c36;
+  border-radius: 6px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sheet-ability-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.sheet-ability-score {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e6edf3;
+}
+
+.sheet-ability-mod {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.74rem;
+  color: #f2cc60;
+}
+
+.sheet-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.74rem;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.35);
+}
+
+.sheet-line-label {
+  color: var(--text-muted);
+}
+
+.sheet-line-value {
+  font-family: 'Consolas', 'Courier New', monospace;
+  color: #e6edf3;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.sheet-note {
+  margin-top: 4px;
+  font-size: 0.64rem;
+  color: #6e7681;
+}
+
+.sheet-warning {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: #ff7b72;
+}
+
+.sheet-feature {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.35);
+}
+
+.sheet-feature-name {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #c9d1d9;
+}
+
+.sheet-feature-desc {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
